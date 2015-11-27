@@ -8,6 +8,7 @@ var express = require('express')
     , customer = require('./routes/customer')
     , vehicle = require('./routes/vehicle')
     , business = require('./routes/business')
+    , dict = require('./routes/dict')
     , comm = require('./routes/comm')
     , http = require('http')
     , path = require('path');
@@ -45,19 +46,49 @@ app.all('*', function(req, res, next) {
     next();
 });
 
+// 获取车辆品牌列表
+//http://localhost:8000/base/car_brand
+// 参数：空
+// 返回：
+//      name: 品牌名称
+//      url_icon: 品牌Logo文件名
+app.get('/base/car_brands/list', dict.brandList);
+
+// 获取车型列表
+//http://localhost:8000/base/car_series?pid=9
+// 参数：
+//      pid: 车牌品牌对应的id
+// 返回：
+//      show_name: 车型名称
+app.get('/base/car_series/list', dict.seriesList);
+
+// 获取车款列表
+//http://localhost:8000/base/car_series?pid=9
+// 参数：
+//      pid: 车型对应的id
+// 返回：
+//      refer_price: 参考价格
+//      go_name: 年份
+//      name: 车款名称
+app.get('/base/car_types/list', dict.typeList);
+
 // 获取全局令牌
-// 参数：account: 账号
+// 参数：
+//      account: 账号
 //      password: 密码
 //      app_key: app_key
 //
-// 返回：access_token: 全局令牌
+// 返回：
+//      access_token: 全局令牌
 //      valid_time: 有效时间
 app.get('/customer/token', customer.token);
 
 // 登陆接口
-// 参数：account: 手机号码或者邮箱地址
+// 参数：
+//      account: 手机号码或者邮箱地址
 //      passsword: md5(登陆密码)
-// 返回：auth_code: api调用验证码
+// 返回：
+//      auth_code: api调用验证码
 //      cust_id: 用户id
 app.get('/customer/login', customer.login);
 
@@ -69,6 +100,14 @@ app.get('/customer/login', customer.login);
 // 返回：
 //    cust_id: 用户id
 app.get('/customer/register', customer.register);
+
+// 重置密码
+// 参数：
+//      account: 手机号码或者邮箱地址
+//      passsword: md5(新登陆密码)
+// 返回：
+//      status_code: 调用状态
+app.get('/customer/password/reset', customer.resetPassword);
 
 // 创建用户信息接口
 // 参数:
@@ -176,6 +215,18 @@ app.get('/business/create', business.new);
 //    status_code: 状态码
 app.get('/business/update', business.update);
 
+// 获取业务列表接口
+// 参数:
+//    parent_cust_id: 商户ID;
+//    status: 状态 1:在店 2:离店;
+//    query_type: 离店查询方式;
+//    begin_time: 开始时间;
+//    end_time: 结束时间;
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+app.get('/business/list', business.list);
 
 // 创建http服务器
 if(process.env.NODE_ENV == "development"){

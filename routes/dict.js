@@ -17,10 +17,6 @@ var util = require("../lib/myutil.js");
 var fs = require('fs');
 var define = require("../lib/define.js");
 var http = require("http");
-//var mem = require("../mem.js");
-//var step = require("step");
-//var jsdom = require("jsdom");
-//var $ = require('jquery');
 var async = require('async');
 var url = require("url");
 var cheerio = require('cheerio');
@@ -192,86 +188,6 @@ exports.seriesList = function(req, res){
     var pid = req.query.pid;
     db.getSeriesList(pid, function(series){
         res.send(series);
-    });
-};
-
-exports.addOBDNearPic = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid){
-        if(valid) {
-            var id = req.params.id;
-            var big_pic_url = req.body.big_pic_url;
-            var small_pic_url = req.body.small_pic_url;
-            var author = decodeURIComponent(req.body.author);
-            db.addOBDNearPic(id, big_pic_url, small_pic_url, author, function (row) {
-                if (row == 0) {
-                    result = {
-                        "status_code":define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-                    }
-                } else {
-                    result = {
-                        "status_code":define.API_STATUS_OK  //0 成功 >0 失败
-                    }
-                }
-                res.send(result);
-            });
-        }else{
-            util.resSendNoRight(res);
-        }
-    });
-};
-
-exports.addOBDFarPic = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid){
-        if(valid) {
-            var id = req.params.id;
-            var big_pic_url = req.body.big_pic_url;
-            var small_pic_url = req.body.small_pic_url;
-            var author = decodeURIComponent(req.body.author);
-            db.addOBDFarPic(id, big_pic_url, small_pic_url, author, function (row) {
-                if (row == 0) {
-                    result = {
-                        "status_code":define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-                    }
-                } else {
-                    result = {
-                        "status_code":define.API_STATUS_OK  //0 成功 >0 失败
-                    }
-                }
-                res.send(result);
-            });
-        }else{
-            util.resSendNoRight(res);
-        }
-    });
-};
-
-exports.obdFarPicList = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid) {
-        if (valid) {
-            var id = req.params.id;
-            db.getOBDFarPicList(id, function (series) {
-                res.send(series);
-            });
-        }else{
-            util.resSendNoRight(res);
-        }
-    });
-};
-
-exports.obdNearPicList = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid) {
-        if (valid) {
-            var id = req.params.id;
-            db.getOBDNearPicList(id, function (series) {
-                res.send(series);
-            });
-        }else{
-            util.resSendNoRight(res);
-        }
     });
 };
 

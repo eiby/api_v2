@@ -79,9 +79,57 @@ function WiStormAPI(app_key, app_secret, format, v, sign_method) {
 
 WiStormAPI.prototype.sign = function () {
     var s = raw(this.sign_obj);
-    var sign = util.md5(this.app_secret + s + this.app_secret);
+    var sign = util.md5(encodeURI(this.app_secret + s + this.app_secret));
     sign = sign.toUpperCase();
     return sign;
+};
+
+// 基础数据接口
+// 获取品牌列表
+// 参数:
+//    无
+// 返回：
+//    列表数据
+WiStormAPI.prototype.getBrand = function (callback) {
+    this.sign_obj.method = 'wicare.base.car_brands.list';
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取车系列表
+// 参数:
+//    无
+// 返回：
+//    列表数据
+WiStormAPI.prototype.getSeries = function (pid, callback) {
+    this.sign_obj.method = 'wicare.base.car_series.list';
+    this.sign_obj.pid = pid;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取车款列表
+// 参数:
+//    无
+// 返回：
+//    列表数据
+WiStormAPI.prototype.getType = function (pid, callback) {
+    this.sign_obj.method = 'wicare.base.car_types.list';
+    this.sign_obj.pid = pid;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
 };
 
 // 注册
@@ -128,6 +176,23 @@ WiStormAPI.prototype.getToken = function (account, password, callback) {
 //      cust_id: 用户id
 WiStormAPI.prototype.login = function (account, password, callback) {
     this.sign_obj.method = 'wicare.user.login';
+    this.sign_obj.account = account;
+    this.sign_obj.password = password;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 重置密码
+// 参数：account: 手机号码或者邮箱地址
+//      passsword: md5(登陆密码)
+// 返回：
+//      status_code: 调用状态
+WiStormAPI.prototype.resetPassword = function (account, password, callback) {
+    this.sign_obj.method = 'wicare.user.password.reset';
     this.sign_obj.account = account;
     this.sign_obj.password = password;
     this.sign_obj.sign = this.sign();
@@ -282,6 +347,26 @@ WiStormAPI.prototype.validCode = function (mobile, email, valid_type, valid_code
     });
 };
 
+// 更新车辆信息
+// 参数:
+//    business表里面的除了business_id, arrive_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.updateVehicle = function (obj_id, update_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.vehicle.update';
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.obj_id = obj_id;
+    for (var key in update_json) {
+        this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 创建业务信息
 // 参数:
 //    cust_id: 车主用户ID
@@ -296,7 +381,7 @@ WiStormAPI.prototype.validCode = function (mobile, email, valid_type, valid_code
 //    business_id: 新建业务ID
 WiStormAPI.prototype.createBusiness = function (cust_id, cust_name, obj_id, obj_name, mileage, business_type, business_content, callback) {
     this.sign_obj.method = 'wicare.business.create';
-    this.sign_obj.cust_id = cust_id; //商户ID, 如果没有默认为0
+    this.sign_obj.cust_id = cust_id; //车主用户ID
     this.sign_obj.cust_name = cust_name; //用户名称
     this.sign_obj.obj_id = obj_id; //车牌号
     this.sign_obj.obj_name = obj_name; //车牌号
@@ -330,6 +415,34 @@ WiStormAPI.prototype.updateBusiness = function (business_id, update_json, callba
     });
 };
 
+// 获取业务列表
+// 参数:
+//    parent_cust_id: 商户ID;
+//    status: 状态 1:在店 2:离店;
+//    query_type: 离店查询方式 1: 到店时间 2: 离店时间 3: 评价时间
+//    begin_time: 开始时间;
+//    end_time: 结束时间;
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getBusinessList = function (parent_cust_id, status, query_type, begin_time, end_time, max_id, fields, callback) {
+    this.sign_obj.method = 'wicare.business.list';
+    this.sign_obj.parent_cust_id = parent_cust_id;
+    this.sign_obj.status = status;
+    this.sign_obj.query_type = query_type;
+    this.sign_obj.begin_time = begin_time;
+    this.sign_obj.end_time = end_time;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20c93b72773bf0f8d0905052', 'json', '1.0', 'md5');
 
 //商户注册测试, 注册后需要更新成cust_type为2, 并更新cust_name为商户名称
@@ -351,15 +464,20 @@ var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20
 //    console.log(obj);
 //});
 
+//重置密码
+//wistorm_api.resetPassword('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    console.log(obj);
+//});
+
 //获取令牌测试
 //wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
 //    console.log(obj);
 //});
 
 //新增车主客户测试
-wistorm_api.create(2, 1, 1, "测试车主", "13310000000", "粤B12345", "abcde123456", 1, "奥迪", 1, "奥迪", 1000, "奥迪Q3 2014", 1000, 1, 1, "修车", function(obj){
-    console.log(obj);
-});
+//wistorm_api.create(2, 1, 1, "测试车主", "13310000000", "粤B12346", "abcde123456", 1, "奥迪", 1, "奥迪", 1000, "奥迪Q3 2014", 1000, 1, 1, "修车", function(obj){
+//    console.log(obj);
+//});
 
 //存在测试
 //wistorm_api.exists(define.EXIST_USER_NAME, '13316891158', function(obj){
@@ -367,11 +485,11 @@ wistorm_api.create(2, 1, 1, "测试车主", "13310000000", "粤B12345", "abcde12
 //});
 
 //获取用户信息, 授权获取
-wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
-    wistorm_api.get(1, 'cust_id,cust_name,remark', obj.access_token, function(obj){
-        console.log(obj);
-    });
-});
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.get(1, 'cust_id,cust_name,remark', obj.access_token, function(obj){
+//        console.log(obj);
+//    });
+//});
 
 //发送校验短信
 //wistorm_api.sendSMS(13316891158, define.SMSTYPE_BIND_MOBILE, function(obj){
@@ -381,6 +499,17 @@ wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function
 //验证校验码
 //wistorm_api.validCode(13316891158, "", 1, "5276", function(obj){
 //    console.log(obj);
+//});
+
+//更新车辆测试, 比如业务状态
+//var update_json = {
+//    business_status: 2 //离店
+//};
+//
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.updateVehicle(1, update_json, obj.access_token, function(obj){
+//        console.log(obj);
+//    });
 //});
 
 //新增业务测试
@@ -398,3 +527,45 @@ wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function
 //wistorm_api.updateBusiness(4, update_json, function(obj){
 //    console.log(obj);
 //});
+
+//获取业务列表
+//    business_id: Number,        //业务ID
+//    cust_id: Number,            //用户id
+//    cust_name:String,           //临时字段
+//    obj_id: Number,             //车辆id
+//    obj_name: String,           //车牌号
+//    mileage: Number,            //当时里程
+//    business_type: Number,      //业务类型 1:保养 2:维修 3:美容 4:救援
+//    business_content: String,   //业务内容
+//    status: Number,             //业务状态 1:在店 2:离店
+//    arrive_time: Date,          //到店时间
+//    leave_time: Date,           //离店时间
+//    evaluate_level: Number,     //评价等级 1 - 5
+//    env_level: Number,          //环境等级 1 - 5
+//    price_level: Number,        //价格等级 1 - 5
+//    service_level: Number,      //服务等级 1 - 5
+//    evaluate_content: String,   //评价内容
+//    evaluate_time: Date         //评价时间
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.getBusinessList(1, 1, 1, "2015-11-01 00:00:00", "2015-11-31 00:00:00", 0, "business_id,cust_id,cust_name,obj_id,obj_name,mileage,business_type,business_content,arrive_time", function (obj) {
+//        console.log(obj);
+//    });
+//});
+
+//获取车辆品牌列表
+//wistorm_api.getBrand(function(obj){
+//    console.log(obj);
+//});
+
+//获取车系列表
+//wistorm_api.getSeries(9, function(obj){
+//    console.log(obj);
+//});
+
+//获取车款列表
+wistorm_api.getType(2522, function(obj){
+    console.log(obj);
+});
+
+
+

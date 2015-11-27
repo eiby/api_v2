@@ -229,11 +229,19 @@ exports.exists = function(req, res){
     var query_type = parseInt(req.query.query_type);
     var value = req.query.value;
     db.exists(query_type, value, function (err, count) {
-        var exist = count > 0;
-        var result = {
-            "exist": exist
-        };
-        res.send(result);
+        if(err){
+            var result = {
+                "status_code": define.API_STATUS_EXCEPTION,
+                "err_msg": "invalid query type"
+            };
+            res.send(result);
+        }else{
+            var exist = count > 0;
+            var result = {
+                "exist": exist
+            };
+            res.send(result);
+        }
     });
 };
 

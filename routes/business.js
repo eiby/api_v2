@@ -55,3 +55,29 @@ exports.update = function(req, res){
         res.send(result);
     });
 };
+
+// 业务列表
+exports.list = function(req, res){
+    var access_token = req.query.access_token;
+    var parent_cust_id = req.query.parent_cust_id;
+    var status = parseInt(req.query.status);
+    var query_type = parseInt(req.query.query_type);
+    var begin_time = new Date(req.query.begin_time);
+    var end_time = new Date(req.query.end_time);
+    var fields = req.query.fields;
+    var arr = fields.split(",");
+    var json = {};
+    for (var i = 0; i < arr.length; i++) {
+        json[arr[i]] = 1;
+    }
+
+    var max_id = req.query.max_id;
+    if (typeof max_id == "undefined") {
+        max_id = 0;
+    } else {
+        max_id = parseInt(max_id);
+    }
+    db.getBusinessList(parent_cust_id, status, max_id, query_type, begin_time, end_time, json, function (docs) {
+        res.send(docs);
+    });
+};

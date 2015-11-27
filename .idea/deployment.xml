@@ -5,21 +5,21 @@
       <paths name="baba_new_1">
         <serverdata>
           <mappings>
-            <mapping deploy="/api" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/wistorm" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="baba_new_2">
         <serverdata>
           <mappings>
-            <mapping deploy="/api" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/wistorm" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="baba_new_3">
         <serverdata>
           <mappings>
-            <mapping deploy="/api" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/wistorm" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
