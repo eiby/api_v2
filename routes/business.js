@@ -81,3 +81,12 @@ exports.list = function(req, res){
         res.send(docs);
     });
 };
+
+exports.total = function (req, res) {
+    var parent_cust_id = req.query.parent_cust_id;
+    var begin_time = new Date(req.query.begin_time);
+    var end_time = new Date(req.query.end_time);
+    db.getBusinessTotal(parent_cust_id, begin_time, end_time, function (total) {
+        res.send(total);
+    });
+};

@@ -367,6 +367,50 @@ WiStormAPI.prototype.updateVehicle = function (obj_id, update_json, access_token
     });
 };
 
+// 获取车辆列表
+// 参数:
+//    parent_cust_id: 商户ID;
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getVehicleList = function (parent_cust_id, max_id, fields, access_token, callback) {
+    this.sign_obj.method = 'wicare.user.customers.vehicles.list';
+    this.sign_obj.parent_cust_id = parent_cust_id;
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 搜索车辆
+// 参数:
+//    parent_cust_id: 商户ID;
+//    obj_name: 搜索的车牌号
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.searchCustomerVehicle = function (parent_cust_id, obj_name, max_id, fields, access_token, callback) {
+    this.sign_obj.method = 'wicare.user.customers.vehicles.search';
+    this.sign_obj.parent_cust_id = parent_cust_id;
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.obj_name = obj_name;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 创建业务信息
 // 参数:
 //    cust_id: 车主用户ID
@@ -435,6 +479,28 @@ WiStormAPI.prototype.getBusinessList = function (parent_cust_id, status, query_t
     this.sign_obj.end_time = end_time;
     this.sign_obj.max_id = max_id;
     this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取业务统计
+// 参数:
+//    parent_cust_id: 商户ID;
+//    begin_time: 开始时间;
+//    end_time: 结束时间;
+// 返回：
+//    arrive_total: 到店总数
+//    leave_total: 离店总数
+//    evaluate_total: 评价总数
+WiStormAPI.prototype.getBusinessTotal = function (parent_cust_id, begin_time, end_time, callback) {
+    this.sign_obj.method = 'wicare.business.total';
+    this.sign_obj.parent_cust_id = parent_cust_id;
+    this.sign_obj.begin_time = begin_time;
+    this.sign_obj.end_time = end_time;
     this.sign_obj.sign = this.sign();
     var params = raw2(this.sign_obj);
     var path = define.API_URL + "/router/rest?" + params;
@@ -513,7 +579,7 @@ var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20
 //});
 
 //新增业务测试
-//wistorm_api.createBusiness(3, "卓越维修", 1, "测试车主", 1000, 1, "修车", function(obj){
+//wistorm_api.createBusiness(3, "卓越维修", 1, "测试车主", 1000, 2, "保养", function(obj){
 //    console.log(obj);
 //});
 
@@ -552,6 +618,12 @@ var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20
 //    });
 //});
 
+//获取业务列表
+//可以进行日统计和月统计, 取决与传入的时间段
+wistorm_api.getBusinessTotal(1, "2015-11-01 00:00:00", "2015-12-01 00:00:00", function (obj) {
+    console.log(obj);
+});
+
 //获取车辆品牌列表
 //wistorm_api.getBrand(function(obj){
 //    console.log(obj);
@@ -563,9 +635,87 @@ var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20
 //});
 
 //获取车款列表
-wistorm_api.getType(2522, function(obj){
-    console.log(obj);
-});
+//wistorm_api.getType(2522, function(obj){
+//    console.log(obj);
+//});
+
+//获取车辆列表
+//    obj_id: Number,                  //车辆id
+//    cust_id: Number,                 //用户id
+//    cust_name:String,                //临时字段
+//    obj_name: String,                //车牌号
+//    device_id: Number,               //终端id：0 表示没有绑定终端
+//    active_gps_data: {},             //临时字段
+//    car_brand_id: Number,            //品牌id
+//    car_brand: String,               //车辆品牌
+//    car_series_id: Number,           //车型id
+//    car_series: String,              //车型
+//    car_type_id: Number,             //车款id
+//    car_type: String,                //车款
+//    engine_no: String,               //发动机号
+//    frame_no: String,                //车架号
+//    reg_no: String,                  //登记证书
+//    insurance_company: String,       //保险公司
+//    insurance_tel: String,           //保险公司电话
+//    insurance_date: Date,            //保险到期时间
+//    insurance_no: String,            //保险单号
+//    maintain_company: String,        //保养4S店
+//    maintain_tel: String,            //保养4S店电话
+//    mileage: Number,                 //当前里程，需要动态更新
+//    maintain_last_mileage: Number,   //最后保养里程
+//    gas_no: String,                  //汽油标号 0#, 90#, 93#(92#), 97#(95#)
+//    fuel_price: Number,              //加油油价
+//    buy_date: Date,                  //购车时间
+//    business_status: Number,         //业务状态 1:在店 2:离店
+//    create_time: Date,               //创建时间
+//    update_time: Date,               //更新时间
+//    last_arrive_time: Date,          //最后一次到店时间
+//    arrive_count: Number,            //到店次数
+//    evaluate_count: Number,          //评价次数
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.getVehicleList(1, 0, "cust_id,cust_name,obj_id,obj_name,mileage,maintain_last_mileage", obj.access_token, function (obj) {
+//        console.log(obj);
+//    });
+//});
+
+//搜索车辆
+//    obj_id: Number,                  //车辆id
+//    cust_id: Number,                 //用户id
+//    cust_name:String,                //临时字段
+//    obj_name: String,                //车牌号
+//    device_id: Number,               //终端id：0 表示没有绑定终端
+//    active_gps_data: {},             //临时字段
+//    car_brand_id: Number,            //品牌id
+//    car_brand: String,               //车辆品牌
+//    car_series_id: Number,           //车型id
+//    car_series: String,              //车型
+//    car_type_id: Number,             //车款id
+//    car_type: String,                //车款
+//    engine_no: String,               //发动机号
+//    frame_no: String,                //车架号
+//    reg_no: String,                  //登记证书
+//    insurance_company: String,       //保险公司
+//    insurance_tel: String,           //保险公司电话
+//    insurance_date: Date,            //保险到期时间
+//    insurance_no: String,            //保险单号
+//    maintain_company: String,        //保养4S店
+//    maintain_tel: String,            //保养4S店电话
+//    mileage: Number,                 //当前里程，需要动态更新
+//    maintain_last_mileage: Number,   //最后保养里程
+//    gas_no: String,                  //汽油标号 0#, 90#, 93#(92#), 97#(95#)
+//    fuel_price: Number,              //加油油价
+//    buy_date: Date,                  //购车时间
+//    business_status: Number,         //业务状态 1:在店 2:离店
+//    create_time: Date,               //创建时间
+//    update_time: Date,               //更新时间
+//    last_arrive_time: Date,          //最后一次到店时间
+//    arrive_count: Number,            //到店次数
+//    evaluate_count: Number,          //评价次数
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.searchCustomerVehicle(1, "粤B1", 0, "cust_id,cust_name,obj_id,obj_name,mileage,maintain_last_mileage,business_status,last_arrive_time,arrive_count,evaluate_count", obj.access_token, function (obj) {
+//        console.log(obj);
+//    });
+//});
 
 
 

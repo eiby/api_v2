@@ -194,6 +194,20 @@ app.get('/comm/mail/send', comm.sendEmail);
 //    status_code: 状态码
 app.get('/vehicle/update', vehicle.update);
 
+// 获取商户的用户车辆列表
+// 参数:
+//    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+app.get('/seller/customer/vehicles/list', customer.customerVehicleList);
+
+// 搜索商户的用户车辆列表
+// 参数:
+//    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+app.get('/seller/customer/vehicles/search', customer.searchCustomerVehicle);
+
 // 创建业务信息接口
 // 参数:
 //    cust_id: 车主用户ID
@@ -227,6 +241,17 @@ app.get('/business/update', business.update);
 // 返回：
 //    按fields返回数据列表
 app.get('/business/list', business.list);
+
+// 获取业务列表接口
+// 参数:
+//    parent_cust_id: 商户ID;
+//    begin_time: 开始时间;
+//    end_time: 结束时间;
+// 返回：
+//    arrive_total: 到店总数
+//    leave_total: 离店总数
+//    evaluate_total: 评价总数
+app.get('/business/total', business.total);
 
 // 创建http服务器
 if(process.env.NODE_ENV == "development"){

@@ -305,6 +305,61 @@ exports.resetPassword = function (req, res) {
     });
 };
 
+exports.customerVehicleList = function (req, res) {
+    var access_token = req.query.access_token;
+    db.ifAuthCodeValid(access_token, function (valid) {
+        if (valid) {
+            var parent_cust_id = parseInt(req.query.parent_cust_id);
+
+            var max_id = req.query.max_id;
+            if (typeof max_id == "undefined") {
+                max_id = 0;
+            } else {
+                max_id = parseInt(max_id);
+            }
+
+            var fields = req.query.fields;
+            var arr = fields.split(",");
+            var json = {};
+            for (var i = 0; i < arr.length; i++) {
+                json[arr[i]] = 1;
+            }
+            db.getVehicleList(parent_cust_id, max_id, json, function (vehicles) {
+                res.send(vehicles);
+            });
+        } else {
+            util.resSendNoRight(res);
+        }
+    });
+};
+
+exports.searchCustomerVehicle = function (req, res) {
+    var access_token = req.query.access_token;
+    db.ifAuthCodeValid(access_token, function (valid) {
+        if (valid) {
+            var parent_cust_id = parseInt(req.query.parent_cust_id);
+            var obj_name = req.query.obj_name;
+            var max_id = req.query.max_id;
+            if (typeof max_id == "undefined") {
+                max_id = 0;
+            } else {
+                max_id = parseInt(max_id);
+            }
+            var fields = req.query.fields;
+            var arr = fields.split(",");
+            var json = {};
+            for (var i = 0; i < arr.length; i++) {
+                json[arr[i]] = 1;
+            }
+            db.searchCustomerVehicle(parent_cust_id, obj_name, json, max_id, function (vehicles) {
+                res.send(vehicles);
+            });
+        } else {
+            util.resSendNoRight(res);
+        }
+    });
+};
+
 exports.vehicleList = function (req, res) {
     var auth_code = req.query.auth_code;
     db.ifAuthCodeValid(auth_code, function (valid) {
