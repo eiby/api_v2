@@ -782,65 +782,23 @@ exports.updateSIM = function(req, res){
     });
 };
 
-// 更新终端状态
-//device_id, status
-exports.updateStatus = function(req, res){
-    var device_id = req.params.device_id;
-    var status = req.body.status;
-    db.updateDeviceStatus(device_id, status, function (row) {
+// 修改设备信息
+// 修改的字段由用户自行传入, 修改什么字段就传入什么字段
+exports.update = function(req, res){
+    var device_id = req.query.device_id;
+    var json = util.getUpdateJson(req.query, "device_id");
+
+    db.updateDevice(device_id, json, function (row) {
         if (row == 0) {
             result = {
-                "status_code":define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
             }
         } else {
             result = {
-                "status_code":define.API_STATUS_OK  //0 成功 >0 失败
+                "status_code": define.API_STATUS_OK  //0 成功 >0 失败
             }
         }
         res.send(result);
-    });
-};
-
-// 终端上线，将已出库状态更新状态为已激活
-exports.activateDevice = function(req, res){
-    var device_id = req.params.device_id;
-    db.activateDevice(device_id, function (row) {
-        if (row == 0) {
-            result = {
-                "status_code":define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-            }
-        } else {
-            result = {
-                "status_code":define.API_STATUS_OK  //0 成功 >0 失败
-            }
-        }
-        res.send(result);
-    });
-};
-
-// 客户购买支付后，将终端调拨到客户名下
-exports.changeCustomer = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid){
-        if(valid){
-            var result;
-            var device_id = req.params.device_id;
-            var cust_id = req.body.cust_id;
-            db.updateDeviceCustomer(device_id, cust_id, function(row){
-                if(row == 0){
-                    result = {
-                        "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-                    }
-                }else{
-                    result = {
-                        "status_code": define.API_STATUS_OK  //0 成功 >0 失败
-                    }
-                }
-                res.send(result);
-            });
-        }else{
-            util.resSendNoRight(res);
-        }
     });
 };
 

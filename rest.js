@@ -43,6 +43,7 @@ app.all('*', function(req, res, next) {
 // 路由接口, 单一入口
 // 路由接口可与实际接口分开部署, 也可以和实际接口部署在同一服务器
 app.get('/router/rest', index.rest);
+app.post('/router/rest', index.rest);
 
 // 创建http服务器
 if(process.env.NODE_ENV == "development"){

@@ -163,7 +163,7 @@ exports.sendJPush = _sendJPush;
 
 // 获取验证码并向指定手机发送
 exports.validCode = function (req, res) {
-    var valid_type = req.query.valid_type;
+    var valid_type = parseInt(req.query.valid_type);
     var valid_code = req.query.valid_code;
     var mobile = req.query.mobile;
     var email = req.query.email;

@@ -139,11 +139,13 @@ WiStormAPI.prototype.getType = function (pid, callback) {
 //    password: 加密密码(md5加密)
 // 返回：
 //    cust_id: 用户id
-WiStormAPI.prototype.register = function (mobile, email, password, callback) {
+WiStormAPI.prototype.register = function (mobile, email, password, valid_type, valid_code, callback) {
     this.sign_obj.method = 'wicare.user.register';
     this.sign_obj.mobile = mobile;
     this.sign_obj.email = email;
     this.sign_obj.password = password;
+    this.sign_obj.valid_type = valid_type;
+    this.sign_obj.valid_code = valid_code;
     this.sign_obj.sign = this.sign();
     var params = raw2(this.sign_obj);
     var path = define.API_URL + "/router/rest?" + params;
@@ -191,10 +193,12 @@ WiStormAPI.prototype.login = function (account, password, callback) {
 //      passsword: md5(登陆密码)
 // 返回：
 //      status_code: 调用状态
-WiStormAPI.prototype.resetPassword = function (account, password, callback) {
+WiStormAPI.prototype.resetPassword = function (account, password, valid_type, valid_code, callback) {
     this.sign_obj.method = 'wicare.user.password.reset';
     this.sign_obj.account = account;
     this.sign_obj.password = password;
+    this.sign_obj.valid_type = valid_type;
+    this.sign_obj.valid_code = valid_code;
     this.sign_obj.sign = this.sign();
     var params = raw2(this.sign_obj);
     var path = define.API_URL + "/router/rest?" + params;
@@ -411,6 +415,70 @@ WiStormAPI.prototype.searchCustomerVehicle = function (parent_cust_id, obj_name,
     });
 };
 
+// 更新设备信息
+// 参数:
+//    device表里面的除了device_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.updateDevice = function (device_id, update_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.device.update';
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.device_id = device_id;
+    for (var key in update_json) {
+        this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取设备列表
+// 参数:
+//    parent_cust_id: 商户ID;
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getDeviceList = function (parent_cust_id, max_id, fields, access_token, callback) {
+    this.sign_obj.method = 'wicare.user.devices.list';
+    this.sign_obj.parent_cust_id = parent_cust_id;
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 搜索设备列表
+// 参数:
+//    parent_cust_id: 商户ID;
+//    serial: 设备序列号
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.searchDevice = function (parent_cust_id, max_id, serial, fields, access_token, callback) {
+    this.sign_obj.method = 'wicare.user.devices.search';
+    this.sign_obj.parent_cust_id = parent_cust_id;
+    this.sign_obj.serial = serial;
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 创建业务信息
 // 参数:
 //    cust_id: 车主用户ID
@@ -512,28 +580,27 @@ WiStormAPI.prototype.getBusinessTotal = function (parent_cust_id, begin_time, en
 var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20c93b72773bf0f8d0905052', 'json', '1.0', 'md5');
 
 //商户注册测试, 注册后需要更新成cust_type为2, 并更新cust_name为商户名称
-//wistorm_api.register('13316891158', '', 'e10adc3949ba59abbe56e057f20f883e', function(obj){
-//    console.log(obj);
-//});
+wistorm_api.register('13316560478', '', 'e10adc3949ba59abbe56e057f20f883e', 1, "5276", function(obj){
+    console.log(obj);
+});
 
 //更新用户测试
 //var update_json = {
-//    cust_type: 2, //商户
-//    cust_name: "卓越汽修"
+//    cust_name: "测试更新"
 //};
-//wistorm_api.update(1, update_json, function(obj){
+//wistorm_api.update(3, update_json, function(obj){
 //    console.log(obj);
 //});
 
-//商户登陆测试
-//wistorm_api.login('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//商户登陆密码
+//wistorm_api.login('13316560478', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
 //    console.log(obj);
 //});
 
 //重置密码
-//wistorm_api.resetPassword('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
-//    console.log(obj);
-//});
+wistorm_api.resetPassword('13316560478', 'e10adc3949ba59abbe56e057f20f883e', 1, "5276", function (obj) {
+    console.log(obj);
+});
 
 //获取令牌测试
 //wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
@@ -620,9 +687,9 @@ var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20
 
 //获取业务列表
 //可以进行日统计和月统计, 取决与传入的时间段
-wistorm_api.getBusinessTotal(1, "2015-11-01 00:00:00", "2015-12-01 00:00:00", function (obj) {
-    console.log(obj);
-});
+//wistorm_api.getBusinessTotal(1, "2015-11-01 00:00:00", "2015-12-01 00:00:00", function (obj) {
+//    console.log(obj);
+//});
 
 //获取车辆品牌列表
 //wistorm_api.getBrand(function(obj){
@@ -717,5 +784,56 @@ wistorm_api.getBusinessTotal(1, "2015-11-01 00:00:00", "2015-12-01 00:00:00", fu
 //    });
 //});
 
+//更新设备状态, 比如更改状态
+//var update_json = {
+//    status: 2 //确认收货
+//};
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.updateDevice(1035, update_json, obj.access_token, function (obj) {
+//        console.log(obj);
+//    });
+//});
+
+//获取设备列表
+//    obj_id: Number,                  //车辆id
+//    obj_name: String,                //车牌号
+//    cust_id: Number,                 //用户id
+//    cust_name:String,                //用户名称
+//    device_id: Number,               //终端id：0 表示没有绑定终端
+//    car_brand_id: Number,            //品牌id
+//    car_brand: String,               //车辆品牌
+//    serial: String,                  //终端序列号
+//    sim: String,                     //终端内置sim卡
+//    status: Number,                  //0：未出库 1：已出库 2: 确认收货 3：已激活
+//    hardware_version: String,        //硬件版本号
+//    software_version: String,        //软件版本号
+//    active_time: Date,               //激活时间
+//    end_time: Date,                  //到期时间
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.getDeviceList(1, 0, "cust_id,cust_name,obj_id,obj_name,device_id,car_brand_id,car_brand,serial,sim,status", obj.access_token, function (obj) {
+//        console.log(obj);
+//    });
+//});
+
+//搜索车辆
+//    obj_id: Number,                  //车辆id
+//    obj_name: String,                //车牌号
+//    cust_id: Number,                 //用户id
+//    cust_name:String,                //用户名称
+//    device_id: Number,               //终端id：0 表示没有绑定终端
+//    car_brand_id: Number,            //品牌id
+//    car_brand: String,               //车辆品牌
+//    serial: String,                  //终端序列号
+//    sim: String,                     //终端内置sim卡
+//    status: Number,                  //0：未出库 1：已出库 2: 确认收货 3：已激活
+//    hardware_version: String,        //硬件版本号
+//    software_version: String,        //软件版本号
+//    active_time: Date,               //激活时间
+//    end_time: Date,                  //到期时间
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.searchDevice(1, 0, "56621650887", "cust_id,cust_name,obj_id,obj_name,device_id,car_brand_id,car_brand,serial,sim,status", obj.access_token, function (obj) {
+//        console.log(obj);
+//    });
+//});
 
 

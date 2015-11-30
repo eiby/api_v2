@@ -78,7 +78,26 @@ exports.list = function(req, res){
         max_id = parseInt(max_id);
     }
     db.getBusinessList(parent_cust_id, status, max_id, query_type, begin_time, end_time, json, function (docs) {
-        res.send(docs);
+        var obj_ids = [];
+        for(var i = 0; i < docs.data.length; i++){
+            obj_ids.push(docs.data[i].obj_id);
+        }
+        db.getVehicleListByObjIDs(obj_ids, function(vehicle){
+            for(var i = 0; i < docs.data.length; i++){
+                for(var j = 0; j < vehicle.length; j++){
+                    if(docs.data[i].obj_id == vehicle[j].obj_id){
+                        docs.data[i].car_brand_id = vehicle[j].car_brand_id;
+                        docs.data[i].car_series_id = vehicle[j].car_series_id;
+                        docs.data[i].car_type_id = vehicle[j].car_type_id;
+                        docs.data[i].car_brand = vehicle[j].car_brand;
+                        docs.data[i].car_series = vehicle[j].car_series;
+                        docs.data[i].car_type = vehicle[j].car_type;
+                        break;
+                    }
+                }
+            }
+            res.send(docs);
+        });
     });
 };
 

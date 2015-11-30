@@ -57,17 +57,34 @@ exports.token = function (req, res) {
 exports.login = function (req, res) {
     var account = req.query.account;
     var password = req.query.password;
+    var app_key = req.query.app_key;
     db.getCustomerByMobileOrMail(account, function (customer) {
         if (customer) {
             if (customer.password == password) {
-                result = {
-                    "status_code": define.API_STATUS_OK, //0 成功 >0失败
-                    "cust_type": customer.cust_type,
-                    "cust_id": customer.cust_id,
-                    "cust_name": customer.cust_name,
-                    "tree_path": customer.tree_path
-                };
-                res.send(result);
+                db.getApp(app_key, function (app) {
+                    if (!app) {
+                        result = {
+                            "status_code": define.API_STATUS_INVALID_APPKEY  //错误APPkey
+                        };
+                        res.send(result);
+                    } else {
+                        var timestamp = new Date();
+                        timestamp = Date.parse(timestamp);
+                        var access_token = util.encodeAES(app.app_secret + "," + customer.cust_id + "," + app.app_secret + ",bibibaba");
+                        db.saveAuthCode(access_token, function (err, valid_time) {
+                            result = {
+                                "status_code": define.API_STATUS_OK, //0 成功 >0失败
+                                "cust_type": customer.cust_type,
+                                "cust_id": customer.cust_id,
+                                "cust_name": customer.cust_name,
+                                "tree_path": customer.tree_path,
+                                "access_token": access_token,
+                                "valid_time": valid_time
+                            };
+                            res.send(result);
+                        });
+                    }
+                });
             } else {
                 result = {
                     "status_code":define.API_STATUS_WRONG_PASSWORD  //密码错误
@@ -88,20 +105,33 @@ exports.register = function(req, res){
     var mobile = req.query.mobile;  //手机
     var email = req.query.email;    //邮箱
     var password = req.query.password;  //加密密码
+    var valid_type = parseInt(req.query.valid_type);
+    var valid_code = req.query.valid_code;
 
-    db.register(mobile, email, password, function (err, cust_id) {
-        if (err) {
+    db.ifValidCodeValid(mobile, email, valid_type, valid_code, function (valid) {
+        if(!valid){
             result = {
-                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-            }
-        } else {
-            result = {
-                "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
-                "cust_id": cust_id
-            }
+                "status_code": define.API_STATUS_INVALID_VALIDCODE,  //0 成功 >0 失败
+                "err_msg": "invalid code"
+            };
+            res.send(result);
+        }else{
+            db.register(mobile, email, password, function (err, cust_id) {
+                if (err) {
+                    result = {
+                        "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                    }
+                } else {
+                    result = {
+                        "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
+                        "cust_id": cust_id
+                    }
+                }
+                res.send(result);
+            });
         }
-        res.send(result);
     });
+
 };
 
 // 创建新的客户
@@ -281,26 +311,39 @@ exports.get = function(req, res){
 exports.resetPassword = function (req, res) {
     var account = req.query.account;
     var password = req.query.password;
-    db.getCustomerByMobileOrMail(account, function (customer) {
-        if (customer) {
-            db.updateCustomerPassword(customer.cust_id, password, function(row){
-                if(row > 0){
-                    result = {
-                        "status_code":define.API_STATUS_OK  //重置成功
-                    };
-                    res.send(result);
-                }else{
-                    result = {
-                        "status_code":define.API_STATUS_DATABASE_ERROR  //更新失败
+    var valid_type = parseInt(req.query.valid_type);
+    var valid_code = req.query.valid_code;
+
+    db.ifValidCodeValid(account, account, valid_type, valid_code, function (valid) {
+        if (!valid) {
+            var result = {
+                "status_code": define.API_STATUS_INVALID_VALIDCODE,  //0 成功 >0 失败
+                "err_msg": "invalid code"
+            };
+            res.send(result);
+        } else {
+            db.getCustomerByMobileOrMail(account, function (customer) {
+                if (customer) {
+                    db.updateCustomerPassword(customer.cust_id, password, function (row) {
+                        if (row > 0) {
+                            var result = {
+                                "status_code": define.API_STATUS_OK  //重置成功
+                            };
+                            res.send(result);
+                        } else {
+                            var result = {
+                                "status_code": define.API_STATUS_DATABASE_ERROR  //更新失败
+                            };
+                            res.send(result);
+                        }
+                    });
+                } else {
+                    var result = {
+                        "status_code": define.API_STATUS_INVALID_USER  //用户不存在
                     };
                     res.send(result);
                 }
             });
-        } else {
-            result = {
-                "status_code":define.API_STATUS_INVALID_USER  //用户不存在
-            };
-            res.send(result);
         }
     });
 };
@@ -421,6 +464,116 @@ exports.vehicleListWithDayTotal = function (req, res) {
     });
 };
 
+exports.sellerDeviceList = function(req, res){
+    var access_token = req.query.access_token;
+    db.ifAuthCodeValid(access_token, function (valid) {
+        if (valid) {
+            var parent_cust_id = req.query.parent_cust_id;
+            var max_id = req.query.max_id;
+            if (typeof max_id == "undefined") {
+                max_id = 0;
+            } else {
+                max_id = parseInt(max_id);
+            }
+            var fields = req.query.fields;
+            var arr = fields.split(",");
+            var json = {};
+            for (var i = 0; i < arr.length; i++) {
+                json[arr[i]] = 1;
+            }
+            db.getSellerDeviceList(parent_cust_id, max_id, json, function (devices) {
+                var _devices = {
+                    total: 0,
+                    data: []
+                };
+                var device_ids = [];
+                _devices.total = devices.total;
+                for(var i = 0; i < devices.data.length; i++){
+                    device_ids.push(devices.data[i].device_id);
+                    _devices.data.push(devices.data[i].toJSON());
+                }
+                db.getVehicleListByDevices(device_ids, function (vehicles) {
+                    for (var i = 0; i < _devices.data.length; i++) {
+                        _devices.data[i].obj_name = "";
+                        _devices.data[i].obj_id = "";
+                        _devices.data[i].car_brand_id = 0;
+                        _devices.data[i].car_brand = "";
+                        _devices.data[i].cust_name = "";
+                        for (var j = 0; j < vehicles.length; j++) {
+                            if (_devices.data[i].device_id == vehicles[j].device_id) {
+                                _devices.data[i].obj_id = vehicles[j].obj_id;
+                                _devices.data[i].obj_name = vehicles[j].obj_name;
+                                _devices.data[i].car_brand_id = vehicles[j].car_brand_id;
+                                _devices.data[i].car_brand = vehicles[j].car_brand;
+                                _devices.data[i].cust_name = vehicles[j].cust_name;
+                                break;
+                            }
+                        }
+                    }
+                    res.send(_devices);
+                });
+            });
+        } else {
+            util.resSendNoRight(res);
+        }
+    });
+};
+
+exports.searchSellerDeviceList = function(req, res){
+    var access_token = req.query.access_token;
+    db.ifAuthCodeValid(access_token, function (valid) {
+        if (valid) {
+            var parent_cust_id = req.query.parent_cust_id;
+            var serial = req.query.serial;
+            var max_id = req.query.max_id;
+            if (typeof max_id == "undefined") {
+                max_id = 0;
+            } else {
+                max_id = parseInt(max_id);
+            }
+            var fields = req.query.fields;
+            var arr = fields.split(",");
+            var json = {};
+            for (var i = 0; i < arr.length; i++) {
+                json[arr[i]] = 1;
+            }
+            db.searchSellerDeviceList(parent_cust_id, max_id, serial, json, function (devices) {
+                var _devices = {
+                    total: 0,
+                    data: []
+                };
+                var device_ids = [];
+                _devices.total = devices.total;
+                for(var i = 0; i < devices.data.length; i++){
+                    device_ids.push(devices.data[i].device_id);
+                    _devices.data.push(devices.data[i].toJSON());
+                }
+                db.getVehicleListByDevices(device_ids, function (vehicles) {
+                    for (var i = 0; i < _devices.data.length; i++) {
+                        _devices.data[i].obj_name = "";
+                        _devices.data[i].obj_id = "";
+                        _devices.data[i].car_brand_id = 0;
+                        _devices.data[i].car_brand = "";
+                        _devices.data[i].cust_name = "";
+                        for (var j = 0; j < vehicles.length; j++) {
+                            if (_devices.data[i].device_id == vehicles[j].device_id) {
+                                _devices.data[i].obj_id = vehicles[j].obj_id;
+                                _devices.data[i].obj_name = vehicles[j].obj_name;
+                                _devices.data[i].car_brand_id = vehicles[j].car_brand_id;
+                                _devices.data[i].car_brand = vehicles[j].car_brand;
+                                _devices.data[i].cust_name = vehicles[j].cust_name;
+                                break;
+                            }
+                        }
+                    }
+                    res.send(_devices);
+                });
+            });
+        } else {
+            util.resSendNoRight(res);
+        }
+    });
+};
 
 exports.deviceList = function (req, res) {
     var auth_code = req.query.auth_code;

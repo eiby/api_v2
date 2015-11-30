@@ -7,8 +7,10 @@ var numCPUs = require('os').cpus().length;
 var express = require('express')
     , customer = require('./routes/customer')
     , vehicle = require('./routes/vehicle')
+    , device = require('./routes/device')
     , business = require('./routes/business')
     , dict = require('./routes/dict')
+    , file = require('./routes/file')
     , comm = require('./routes/comm')
     , http = require('http')
     , path = require('path');
@@ -88,8 +90,10 @@ app.get('/customer/token', customer.token);
 //      account: 手机号码或者邮箱地址
 //      passsword: md5(登陆密码)
 // 返回：
-//      auth_code: api调用验证码
 //      cust_id: 用户id
+//      cust_name: 用户名称
+//      access_token: 全局令牌
+//      valid_time: 有效时间
 app.get('/customer/login', customer.login);
 
 // 注册接口
@@ -203,10 +207,39 @@ app.get('/seller/customer/vehicles/list', customer.customerVehicleList);
 
 // 搜索商户的用户车辆列表
 // 参数:
+//    parent_cust_id: 商户ID;
+//    obj_name: 搜索的车牌号
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+app.get('/seller/customer/vehicles/search', customer.searchCustomerVehicle);
+
+// 修改车辆信息接口
+// 参数:
 //    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
 // 返回：
 //    status_code: 状态码
-app.get('/seller/customer/vehicles/search', customer.searchCustomerVehicle);
+app.get('/device/update', device.update);
+
+// 获取商户的设备列表
+// 参数:
+//    parent_cust_id: 商户ID;
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+app.get('/seller/devices/list', customer.sellerDeviceList);
+
+// 搜索商户的设备列表
+// 参数:
+//    parent_cust_id: 商户ID;
+//    serial: 搜索的序列号
+//    max_id: 本页最大ID, 获取下页内容时使用
+//    fields: 返回字段;
+// 返回：
+//    按fields返回数据列表
+app.get('/seller/devices/search', customer.searchSellerDeviceList);
 
 // 创建业务信息接口
 // 参数:

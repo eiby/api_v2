@@ -3,6 +3,7 @@
  */
 var http = require("http");
 var util = require("../lib/myutil.js");
+var file = require("./file");
 var define = require("../lib/define.js");
 var config = require("../lib/config.js");
 var db = require("../lib/db.js");
@@ -77,13 +78,17 @@ exports.rest = function(req, res){
                        var map_url = map[method];
                        if(map_url && map_url != undefined && map_url != ""){
                            var params = raw2(req.query);
-                           if(method == 'wicare.user.access_token'){
+                           if(method == 'wicare.user.access_token' || method == 'wicare.user.login'){
                                params = params + "&app_key=" + app_key;
                            }
-                           var path = apiPath + map_url + "?" + params;
-                           util._get(path, function (obj) {
-                               res.send(obj);
-                           });
+                           if(method == "wicare.file.upload"){
+                               file.upload(req, res);
+                           }else{
+                               var path = apiPath + map_url + "?" + params;
+                               util._get(path, function (obj) {
+                                   res.send(obj);
+                               });
+                           }
                        }else{
                            var resultObject = {
                                status_code: define.API_STATUS_INVALID_METHOD,
