@@ -179,23 +179,64 @@ exports.insuranceList = function(req, res){
 };
 
 exports.brandList = function(req, res){
-    db.getBrandList(function(brands){
-        res.send(brands);
+    //db.getBrandList(function(brands){
+    //    res.send(brands);
+    //});
+    //    id: Number,
+    //    name: String,
+    //    pid: Number,
+    //    url_spell: String,
+    //    t_spell: String,
+    //    url_icon: String
+    db.list(db.table_name_def.TAB_CAR_BRAND, {}, "id,name,pid,url_spell,t_spell,url_icon", "t_spell", "", 0, 0, -1, function(docs){
+       res.send(docs);
     });
 };
 
 exports.seriesList = function(req, res){
-    var pid = req.query.pid;
-    db.getSeriesList(pid, function(series){
-        res.send(series);
-    });
+    //var pid = req.query.pid;
+    //db.getSeriesList(pid, function(series){
+    //    res.send(series);
+    //});
+    //    id: Number,
+    //    name: String,
+    //    pid: Number,
+    //    url_spell: String,
+    //    show_name: String,
+    //    go_id: Number,
+    //    go_name: String,
+    var json = util.getQueryJson(req.query, "pid");
+    var query = json.query;
+    if(json.has_query){
+        db.list(db.table_name_def.TAB_CAR_SERIES, query, "id,name,pid,url_spell,show_name,go_id,go_name", "id", "", 0, 0, -1, function(docs){
+            res.send(docs);
+        });
+    }else{
+        res.send(define.EMPTY_ARRAY);
+    }
 };
 
 exports.typeList = function(req, res){
-    var pid = req.query.pid;
-    db.getCarTypeList(pid, function(types){
-        res.send(types);
-    });
+    //var pid = req.query.pid;
+    //db.getCarTypeList(pid, function(types){
+    //    res.send(types);
+    //});
+    //    id: Number,
+    //    name: String,
+    //    pid: Number,
+    //    go_id: String,
+    //    go_name: String,
+    //    refer_price: String,
+    //    url_spell: String,    //车型简拼
+    var json = util.getQueryJson(req.query, "pid");
+    var query = json.query;
+    if(json.has_query){
+        db.list(db.table_name_def.TAB_CAR_TYPE, query, "id,name,pid,url_spell,refer_price,go_id,go_name", "go_id", "", 0, 0, -1, function(docs){
+            res.send(docs);
+        });
+    }else{
+        res.send(define.EMPTY_ARRAY);
+    }
 };
 
 exports.dealerList = function(req, res){

@@ -18,6 +18,8 @@
     "async": "",
     "cheerio": "0.18.0",
     "excel-export": "",
-    "aliyun-sdk": ""
+    "aliyun-sdk": "",
+    "weixin-pay": "",
+    "xml2js": "0.4.15"
   }
 }

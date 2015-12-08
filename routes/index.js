@@ -55,7 +55,9 @@ exports.rest = function(req, res){
     var access_token = req.query.access_token; //access_token
     var fields = req.query.fields;             //需要返回的字段
     // 验证app_key是否正确, 否则返回错误信息
-    db.getApp(app_key, function(app){
+    //db.getApp(app_key, function(app){
+    var query_json = {"app_key": app_key};
+    db.get(db.table_name_def.TAB_APP, query_json, "app_id,app_secret", function (app) {
        if(!app){
            var resultObject = {
                status_code: define.API_STATUS_INVALID_APPKEY,
@@ -78,7 +80,7 @@ exports.rest = function(req, res){
                        var map_url = map[method];
                        if(map_url && map_url != undefined && map_url != ""){
                            var params = raw2(req.query);
-                           if(method == 'wicare.user.access_token' || method == 'wicare.user.login'){
+                           if(method == 'wicare.user.access_token' || method == 'wicare.user.login' || method == "wicare.user.sso_login"){
                                params = params + "&app_key=" + app_key;
                            }
                            if(method == "wicare.file.upload"){

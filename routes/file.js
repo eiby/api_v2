@@ -56,14 +56,14 @@ exports.upload = function(req, res){
                     console.log('error:', err);
                     return;
                 }
-                var expires = new Date("2019-01-01 00:00:00");
+                var expires = new Date("2100-01-01 00:00:00");
                 oss.putObject({
                         Bucket: 'baba-img',
                         Key: target_path,                 // 注意, Key 的值不能以 / 开头, 否则会返回错误.
                         Body: data,
                         AccessControlAllowOrigin: '',
-                        ContentType: 'application/octet-stream',
-                        CacheControl: 'no-cache',         // 参考: http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9
+                        ContentType: req.files.image.type,
+                        CacheControl: 'max-age=31536000', // 参考: http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.9
                         ContentDisposition: '',           // 参考: http://www.w3.org/Protocols/rfc2616/rfc2616-sec19.html#sec19.5.1
                         ContentEncoding: 'utf-8',         // 参考: http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.11
                         ServerSideEncryption: 'AES256',

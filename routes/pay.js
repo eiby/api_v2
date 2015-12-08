@@ -9,7 +9,13 @@ var db = require("../lib/db.js");
 var util = require("../lib/myutil.js");
 var define = require("../lib/define.js");
 var alipay = require("../lib/alipay.js");
+var WXPay = require('weixin-pay');
 var xmlreader = require("xmlreader");
+var fs = require('fs');
+var config = require("../lib/config.js");
+var xml2js = require('xml2js');
+
+var notifyUrl = config.pay.notify_url;
 
 // 获取最终支付地址
 exports.doPay = function (req, res) {
@@ -158,5 +164,97 @@ exports.doAlipayService = function (req, res) {
                 res.send(result);
             }
         }
+    });
+};
+
+// 终端支付逻辑
+// 1. 首先产生订单
+// 2. 获取支付参数,发回给JS
+exports.doWeixinPay = function (req, res) {
+    //cust_id, order_type, product_name, remark, unit_price, quantity, total_price,
+    var cust_id = parseInt(req.query.cust_id);
+    var open_id = req.query.open_id;
+    var order_type = parseInt(req.query.order_type);
+    var pay_key = req.query.pay_key;
+    var product_name = req.query.product_name;
+    var remark = req.query.remark;
+    var unit_price = parseFloat(req.query.unit_price);
+    var quantity = parseInt(req.query.quantity);
+    var total_price = parseFloat(req.query.total_price);
+
+    db.addOrder(cust_id, order_type, product_name, remark, unit_price, quantity, total_price, pay_key, 0, function (err, order_id) {
+        if (err) {
+            var result = {
+                "status_code": define.API_STATUS_DATABASE_ERROR,  //0 成功 >0 失败
+                "err_msg": "add order failed."
+            };
+            res.send(result);
+        } else {
+            var wxpay = WXPay({
+                appid: 'wxa5c196f7ec4b5df9',
+                mch_id: '1285609701',
+                partner_key: '9410bc1cbfa8f44ee5f8a331ba8dd3fc', //微信商户平台API密钥
+                pfx: fs.readFileSync('./apiclient_cert.p12')       //微信商户平台证书
+            });
+
+            wxpay.getBrandWCPayRequestParams({
+                openid: open_id,
+                body: product_name,
+                detail: remark,
+                out_trade_no: order_id,
+                total_fee: total_price * 100,
+                spbill_create_ip: '192.168.2.210',
+                notify_url: notifyUrl
+            }, function (err, param) {
+                // in express
+                var result = {
+                    "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
+                    "pay_args": param
+                };
+                res.send(result);
+            });
+        }
+    });
+};
+
+var buildXML = function(json){
+    var builder = new xml2js.Builder();
+    return builder.buildObject(json);
+};
+
+// 微信支付通知
+exports.doWeixinPayNotify = function (req, res) {
+    // 接收xml数据
+    req.rawBody = '';
+    var json = {};
+    req.setEncoding('utf8');
+    req.on('data', function (chunk) {
+        req.rawBody += chunk;
+    });
+    req.on('end', function () {
+        //json = xml2js.toJson(req.rawBody);
+        var parser = new xml2js.Parser({ trim:true, explicitArray:false, explicitRoot:false });
+        parser.parseString(req.rawBody, function (err, json) {
+            console.log(json);
+            var return_code = json.return_code;
+            var out_trade_no = json.out_trade_no;
+            var transaction_id = json.transaction_id;
+            if (return_code == "SUCCESS"){
+                // res.success() 向微信返回处理成功信息，res.fail()返回失败信息。
+                db.updateOrder(out_trade_no, transaction_id, 1, function (row) {
+                    res.success = function () {
+                        res.end(buildXML({xml: {return_code: 'SUCCESS'}}));
+                    };
+                    res.fail = function () {
+                        res.end(buildXML({xml: {return_code: 'FAIL'}}));
+                    };
+                    if (row > 0) {
+                        res.success();
+                    } else {
+                        res.fail();
+                    }
+                });
+            }
+        });
     });
 };

@@ -12,6 +12,8 @@ var express = require('express')
     , dict = require('./routes/dict')
     , file = require('./routes/file')
     , comm = require('./routes/comm')
+    , pay = require('./routes/pay')
+    , exception = require('./routes/exception')
     , http = require('http')
     , path = require('path');
 
@@ -20,19 +22,26 @@ var app = express();
 app.set('port', process.env.PORT || 3000);
 //app.set('views', path.join(__dirname, 'views'));
 //app.set('view engine', 'ejs');
-app.use(express.favicon());
+//app.use(express.favicon());
 app.use(express.logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded());
 app.use(express.compress());
 app.use(express.bodyParser({uploadDir:'./uploads'}));
 app.use(express.methodOverride());
-app.use(express.cookieParser('your secret here'));
-app.use(express.session());
+//app.use(express.cookieParser('your secret here'));
+//app.use(express.session());
+
+//判断接口是否需要访问令牌
+app.use(function (req, res, next) {
+    // 做访问令牌验证
+    customer.checkAccessToken(req, res, next);
+});
+
 app.use(app.router);
 app.use('/public', express.staticCache());
 app.use('/public', express.static(__dirname + '/public', { maxAge:900000 }));
-app.use(express.static(path.join(__dirname, 'public')));
+//app.use(express.static(path.join(__dirname, 'public')));
 
 app.configure('development', function(){
     app.use(express.errorHandler());
@@ -96,6 +105,16 @@ app.get('/customer/token', customer.token);
 //      valid_time: 有效时间
 app.get('/customer/login', customer.login);
 
+// 第三方登陆接口(叭叭)
+// 参数：
+//      login_id: 第三方登陆返回的标识ID
+// 返回：
+//      cust_id: 用户id
+//      cust_name: 用户名称
+//      access_token: 全局令牌
+//      valid_time: 有效时间
+app.get('/customer/sso_login', customer.sso_login);
+
 // 注册接口
 // 参数:
 //    mobile: 手机(手机或者邮箱选其一)
@@ -151,7 +170,7 @@ app.get('/customer/update', customer.update);
 //    customer表里面的除了cust_id, create_time, update_time之外的所有字段
 // 返回：
 //    status_code: 状态码
-app.get('/customer/exists', customer.exists);
+//app.get('/customer/exists', customer.exists);
 
 // 获取用户信息
 // 参数:
@@ -181,16 +200,6 @@ app.get('/customer/valid_code', comm.validCode);
 //    status_code: 状态码
 app.get('/comm/sms/send', comm.sendSMS);
 
-// 发送模板邮件
-// 参数:
-//    email: 手机号码
-//    type: 发送邮件类型
-//      1: 普通校验码信息
-//      2: 忘记密码校验信息
-// 返回：
-//    status_code: 状态码
-app.get('/comm/mail/send', comm.sendEmail);
-
 // 修改车辆信息接口
 // 参数:
 //    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
@@ -203,7 +212,7 @@ app.get('/vehicle/update', vehicle.update);
 //    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
 // 返回：
 //    status_code: 状态码
-app.get('/seller/customer/vehicles/list', customer.customerVehicleList);
+app.get('/vehicles/list', vehicle.list);
 
 // 搜索商户的用户车辆列表
 // 参数:
@@ -213,7 +222,7 @@ app.get('/seller/customer/vehicles/list', customer.customerVehicleList);
 //    fields: 返回字段;
 // 返回：
 //    按fields返回数据列表
-app.get('/seller/customer/vehicles/search', customer.searchCustomerVehicle);
+//app.get('/seller/customer/vehicles/search', customer.searchCustomerVehicle);
 
 // 修改车辆信息接口
 // 参数:
@@ -229,7 +238,7 @@ app.get('/device/update', device.update);
 //    fields: 返回字段;
 // 返回：
 //    按fields返回数据列表
-app.get('/seller/devices/list', customer.sellerDeviceList);
+app.get('/devices/list', device.list);
 
 // 搜索商户的设备列表
 // 参数:
@@ -239,7 +248,7 @@ app.get('/seller/devices/list', customer.sellerDeviceList);
 //    fields: 返回字段;
 // 返回：
 //    按fields返回数据列表
-app.get('/seller/devices/search', customer.searchSellerDeviceList);
+//app.get('/devices/search', device.list);
 
 // 创建业务信息接口
 // 参数:
@@ -261,6 +270,16 @@ app.get('/business/create', business.new);
 // 返回：
 //    status_code: 状态码
 app.get('/business/update', business.update);
+
+// 业务离店更新接口
+// 参数:
+//    business_id: 业务Id
+//    obj_id: 车辆Id
+//    business_type: 业务类型
+//    mileage: 最后行驶里程
+// 返回：
+//    status_code: 状态码
+//app.get('/business/leave', business.leave);
 
 // 获取业务列表接口
 // 参数:
@@ -285,6 +304,67 @@ app.get('/business/list', business.list);
 //    leave_total: 离店总数
 //    evaluate_total: 评价总数
 app.get('/business/total', business.total);
+
+// 新建异常车况
+// 参数:
+//    obj_id: 车辆ID
+//    obj_name: 车牌号
+//    car_brand_id: 品牌ID
+//    car_series: 车型
+//    car_type: 车款
+//    seller_id: 商户ID
+//    cust_id: 客户ID
+//    open_id: 微信登录ID
+//    cust_name: 客户名称
+//    device_id: 设备ID
+//    maintain_last_mileage: 最后保养里程
+//    mileage: 当前里程
+//    last_arrive: 最后到店时间
+//    exp_type: 异常类型 不传为全部 1:保养到期 2:长期未到店 3:故障
+//    exp_reason: 异常原因
+// 返回：
+//    status_code: 状态码
+app.get('/exception/create', exception.new);
+
+// 获取商户的用户车辆列表
+// 参数:
+//    exception_id: 异常Id
+//    exception表里面的除了exception_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+app.get('/exception/update', exception.update);
+
+// 获取商户的用户车辆列表
+// 参数:
+//    exception_id: 异常Id
+// 返回：
+//    status_code: 状态码
+app.get('/exception/delete', exception.delete);
+
+// 获取商户的异常车况列表
+// 参数:
+//    parent_cust_id: 商户Id
+//    exp_type: 异常类型, 不传为全部
+//    max_id: 本地最大Id
+//    fields: 返回字段
+// 返回：
+//    由fields设定的字段
+app.get('/exceptions/list', exception.list);
+
+// 微信支付接口
+// 参数:
+//    cust_id: 客户ID(商户ID或者车主ID)
+//    open_id: 微信用户的openid
+//    order_type: 订单类型 1:设备销售 2:服务费
+//    product_name: 产品名称
+//    remark: 产品描述
+//    unit_price: 单价
+//    quantity: 数量
+//    total_price: 总价(元)
+// 返回：
+//    微信支付相关参数
+app.get('/pay/weixin', pay.doWeixinPay);
+
 
 // 创建http服务器
 if(process.env.NODE_ENV == "development"){

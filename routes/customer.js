@@ -9,31 +9,71 @@ var db = require("../lib/db.js");
 var util = require("../lib/myutil.js");
 var define = require("../lib/define.js");
 var revise = require("../lib/revise.js");
+var config = require("../lib/config.js");
+var url = require("url");
+
+//检查全局令牌
+exports.checkAccessToken = function (req, res, next){
+    var authorize = config.authorize;
+    // 判断是否需要验证令牌, 如果不需要, 则继续
+    var obj = url.parse(req.url);
+    if(authorize[obj.pathname]){
+        var access_token = req.query.access_token;
+        db.checkAccessToken(access_token, function(success){
+            if(success){
+                next();
+            }else{
+                util.resSendNoRight(res);
+            }
+        });
+    }else{
+        next();
+    }
+};
 
 //获取全局令牌
 exports.token = function (req, res) {
     var account = req.query.account;
     var password = req.query.password;
     var app_key = req.query.app_key;
-    db.getCustomerByMobileOrMail(account, function (customer) {
+    var query_json = {
+        "$or": [{
+            mobile: account,
+            password: password
+        }, {
+            email: account,
+            password: password
+        }]
+    };
+    db.get(db.table_name_def.TAB_CUSTOMER, query_json, "cust_id,password", function(customer){
         if (customer) {
             if (customer.password == password) {
-                db.getApp(app_key, function (app) {
+                var query_json = {"app_key": app_key};
+                db.get(db.table_name_def.TAB_APP, query_json, "app_id", function (app) {
                     if (!app) {
                         result = {
                             "status_code": define.API_STATUS_INVALID_APPKEY  //错误APPkey
                         };
                         res.send(result);
                     } else {
-                        var timestamp = new Date();
-                        timestamp = Date.parse(timestamp);
                         var access_token = util.encodeAES(app.app_secret + "," + customer.cust_id + "," + app.app_secret + ",bibibaba");
-                        db.saveAuthCode(access_token, function (err, valid_time) {
-                            result = {
-                                "status_code": define.API_STATUS_OK, //0 成功 >0失败
-                                "access_token": access_token,
-                                "valid_time": valid_time
-                            };
+                        var valid_time = new Date();
+                        var d = valid_time.getTime() + 24 * 60 * 60 * 1000;
+                        valid_time = new Date(d);
+                        var query_json = {access_token: access_token};
+                        var update_json = {valid_time: valid_time};
+                        db.findAndUpdate(db.table_name_def.TAB_ACCESS_TOKEN, query_json, update_json, function(status, doc){
+                            if(status == define.DB_STATUS_OK){
+                                result = {
+                                    "status_code": define.API_STATUS_OK, //0 成功 >0失败
+                                    "access_token": access_token,
+                                    "valid_time": valid_time
+                                };
+                            }else{
+                                result = {
+                                    "status_code": define.API_STATUS_DATABASE_ERROR //0 成功 >0失败
+                                };
+                            }
                             res.send(result);
                         });
                     }
@@ -58,29 +98,49 @@ exports.login = function (req, res) {
     var account = req.query.account;
     var password = req.query.password;
     var app_key = req.query.app_key;
-    db.getCustomerByMobileOrMail(account, function (customer) {
+    // 判断邮箱或者手机是否登录成功
+    var query_json = {
+        "$or": [{
+            mobile: account,
+            password: password
+        }, {
+            email: account,
+            password: password
+        }]
+    };
+    db.get(db.table_name_def.TAB_CUSTOMER, query_json, "cust_id,password,cust_type,cust_name,tree_path", function(customer){
         if (customer) {
             if (customer.password == password) {
-                db.getApp(app_key, function (app) {
+                var query_json = {"app_key": app_key};
+                db.get(db.table_name_def.TAB_APP, query_json, "app_id", function (app) {
                     if (!app) {
                         result = {
                             "status_code": define.API_STATUS_INVALID_APPKEY  //错误APPkey
                         };
                         res.send(result);
                     } else {
-                        var timestamp = new Date();
-                        timestamp = Date.parse(timestamp);
                         var access_token = util.encodeAES(app.app_secret + "," + customer.cust_id + "," + app.app_secret + ",bibibaba");
-                        db.saveAuthCode(access_token, function (err, valid_time) {
-                            result = {
-                                "status_code": define.API_STATUS_OK, //0 成功 >0失败
-                                "cust_type": customer.cust_type,
-                                "cust_id": customer.cust_id,
-                                "cust_name": customer.cust_name,
-                                "tree_path": customer.tree_path,
-                                "access_token": access_token,
-                                "valid_time": valid_time
-                            };
+                        var valid_time = new Date();
+                        var d = valid_time.getTime() + 24 * 60 * 60 * 1000;
+                        valid_time = new Date(d);
+                        var query_json = {access_token: access_token};
+                        var update_json = {valid_time: valid_time};
+                        db.findAndUpdate(db.table_name_def.TAB_ACCESS_TOKEN, query_json, update_json, function(status, doc){
+                            if(status == define.DB_STATUS_OK) {
+                                result = {
+                                    "status_code": define.API_STATUS_OK, //0 成功 >0失败
+                                    "cust_type": customer.cust_type,
+                                    "cust_id": customer.cust_id,
+                                    "cust_name": customer.cust_name,
+                                    "tree_path": customer.tree_path,
+                                    "access_token": access_token,
+                                    "valid_time": valid_time
+                                };
+                            }else{
+                                result = {
+                                    "status_code": define.API_STATUS_DATABASE_ERROR //0 成功 >0失败
+                                };
+                            }
                             res.send(result);
                         });
                     }
@@ -100,6 +160,62 @@ exports.login = function (req, res) {
     });
 };
 
+//第三方登录以后调用此接口，如果已经存在此用户则同步用户信息，如不存在则返回不存在，需走注册绑定接口
+exports.sso_login = function(req, res){
+    var login_id = req.query.login_id;
+    if(login_id == undefined){
+        login_id = "";
+    }
+    var app_key = req.query.app_key;
+    // 判断邮箱或者手机是否登录成功
+    var query_json = {
+        login_id: login_id
+    };
+    db.get(db.table_name_def.TAB_CUSTOMER, query_json, "cust_id,password,cust_type,cust_name,tree_path", function(customer){
+        if(customer){
+            var query_json = {"app_key": app_key};
+            db.get(db.table_name_def.TAB_APP, query_json, "app_id", function (app) {
+                if (!app) {
+                    result = {
+                        "status_code": define.API_STATUS_INVALID_APPKEY  //错误APPkey
+                    };
+                    res.send(result);
+                } else {
+                    var access_token = util.encodeAES(app.app_secret + "," + customer.cust_id + "," + app.app_secret + ",bibibaba");
+                    var valid_time = new Date();
+                    var d = valid_time.getTime() + 24 * 60 * 60 * 1000;
+                    valid_time = new Date(d);
+                    var query_json = {access_token: access_token};
+                    var update_json = {valid_time: valid_time};
+                    db.findAndUpdate(db.table_name_def.TAB_ACCESS_TOKEN, query_json, update_json, function(status, doc){
+                        if(status == define.DB_STATUS_OK) {
+                            result = {
+                                "status_code": define.API_STATUS_OK, //0 成功 >0失败
+                                "cust_type": customer.cust_type,
+                                "cust_id": customer.cust_id,
+                                "cust_name": customer.cust_name,
+                                "tree_path": customer.tree_path,
+                                "access_token": access_token,
+                                "valid_time": valid_time
+                            };
+                        }else{
+                            result = {
+                                "status_code": define.API_STATUS_DATABASE_ERROR //0 成功 >0失败
+                            };
+                        }
+                        res.send(result);
+                    });
+                }
+            });
+        }else{
+            result = {
+                "status_code":define.API_STATUS_INVALID_USER //用户不存在
+            };
+            res.send(result);
+        }
+    });
+};
+
 // 用户注册
 exports.register = function(req, res){
     var mobile = req.query.mobile;  //手机
@@ -108,30 +224,52 @@ exports.register = function(req, res){
     var valid_type = parseInt(req.query.valid_type);
     var valid_code = req.query.valid_code;
 
-    db.ifValidCodeValid(mobile, email, valid_type, valid_code, function (valid) {
-        if(!valid){
+    //db.ifValidCodeValid(mobile, email, valid_type, valid_code, function (valid) {
+    // 判断校验码是否正常
+    var now = new Date();
+    var query_json = {"$or": [
+        {'mobile': mobile, 'valid_code': valid_code, 'valid_time': {'$gte': now}},
+        {'email': email, 'valid_code': valid_code, 'valid_time': {'$gte': now}}
+    ]};
+    db.get(db.table_name_def.TAB_VALID_CODE, query_json, "valid_code", function(valid_code){
+        if(!valid_code){
             result = {
                 "status_code": define.API_STATUS_INVALID_VALIDCODE,  //0 成功 >0 失败
                 "err_msg": "invalid code"
             };
             res.send(result);
         }else{
-            db.register(mobile, email, password, function (err, cust_id) {
-                if (err) {
+            // 注册用户, 判断用户名是否存在, 如果存在, 返回提醒信息
+            var create_json = {
+                mobile: mobile,
+                email: email,
+                password: password,
+                balance: 0
+            };
+            var exists_query = {"$or": [
+                {'mobile': mobile},
+                {'email': email}
+            ]};
+            db.create(db.table_name_def.TAB_CUSTOMER, create_json, true, exists_query, "cust_id", false, null, null, function(status, id){
+                if (status == define.DB_STATUS_OK) {
                     result = {
-                        "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                        "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
+                        "cust_id": id
+                    }
+                } else if (status == define.DB_STATUS_EXISTS) {
+                    result = {
+                        "status_code": define.API_STATUS_EXISTS_USER,  //0 成功 >0 失败
+                        "cust_id": id
                     }
                 } else {
                     result = {
-                        "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
-                        "cust_id": cust_id
+                        "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
                     }
                 }
                 res.send(result);
             });
         }
     });
-
 };
 
 // 创建新的客户
@@ -154,28 +292,41 @@ exports.new = function (req, res) {
     //    business_type: 业务类型
     //    business_content: 业务内容
     var mode = req.query.mode;
-    var parent_cust_id = req.query.parent_cust_id;
-    var cust_type = req.query.cust_type;
-    var cust_name = req.query.cust_name;
-    var mobile = req.query.mobile;
-    var obj_name = req.query.obj_name;
-    var frame_no = req.query.frame_no;
-    var car_brand = req.query.car_brand;
-    var car_series = req.query.car_series;
-    var car_type = req.query.car_type;
-    var car_brand_id = parseInt(req.query.car_brand_id);
-    var car_series_id = parseInt(req.query.car_series_id);
-    var car_type_id = parseInt(req.query.car_type_id);
-    var mileage = parseInt(req.query.mileage);
     var if_arrive = parseInt(req.query.if_arrive);
-    var business_type = parseInt(req.query.business_type);
-    var business_content = req.query.business_content;
+    var seller_id = req.query.seller_id;
+    var create_json = util.getCreateJson(req.query, "seller_id,cust_type,cust_name,mobile,password");
+    var mobile = req.query.mobile;
+    create_json.password = util.md5(mobile.substr(mobile.length - 6, 6));
+    //var cust_type = req.query.cust_type;
+    //var cust_name = req.query.cust_name;
+    //var mobile = req.query.mobile;
+    //var obj_name = req.query.obj_name;
+    //var frame_no = req.query.frame_no;
+    //var car_brand = req.query.car_brand;
+    //var car_series = req.query.car_series;
+    //var car_type = req.query.car_type;
+    //var car_brand_id = parseInt(req.query.car_brand_id);
+    //var car_series_id = parseInt(req.query.car_series_id);
+    //var car_type_id = parseInt(req.query.car_type_id);
+    //var mileage = parseInt(req.query.mileage);
+    //var if_arrive = parseInt(req.query.if_arrive);
+    //var business_type = parseInt(req.query.business_type);
+    //var business_content = req.query.business_content;
 
+    var exists_query = {"seller_id": seller_id, "mobile": req.query.mobile};
+    var exists_field = {"cust_id": 1};
     if (mode == 1) {
-        db.addCustomer(cust_type, cust_name, mobile, parent_cust_id, function (err, cust_id) {
-            if (err) {
+        //db.addCustomer(cust_type, cust_name, mobile, parent_cust_id, function (err, cust_id) {
+        db.create(db.table_name_def.TAB_CUSTOMER, create_json, true, exists_query, exists_field, false, null, null, function(status, cust_id){
+            if (status == define.DB_STATUS_FAIL) {
                 result = {
                     "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                };
+                res.send(result);
+            } else if(status == define.DB_STATUS_EXISTS){
+                result = {
+                    "status_code": define.API_STATUS_EXISTS_USER, //用户已存在
+                    "cust_id": cust_id
                 };
                 res.send(result);
             } else {
@@ -187,43 +338,55 @@ exports.new = function (req, res) {
             }
         });
     } else if (mode == 2) {
-        db.addCustomer(cust_type, cust_name, mobile, parent_cust_id, function (err, cust_id) {
-            if (err) {
+        db.create(db.table_name_def.TAB_CUSTOMER, create_json, true, exists_query, exists_field, false, null, null, function(status, cust_id){
+            if (status == define.DB_STATUS_FAIL) {
                 result = {
                     "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
                 };
                 res.send(result);
             } else {
-                db.addVehicle("", obj_name, cust_id, car_brand, car_series, car_type, car_brand_id, car_series_id,
-                    car_type_id, frame_no, mileage, function (err, obj_id) {
-                        if (err) {
-                            result = {
-                                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-                            };
-                            res.send(result);
-                        } else {
-                            // 如果到店,则自动产生到店记录
-                            if (if_arrive == 1) {
-                                db.addBusiness(cust_id, cust_name, obj_id, obj_name, mileage, business_type, business_content, function (err, busi_id) {
-                                    result = {
-                                        "status_code": define.API_STATUS_OK, //0 成功 >0 失
-                                        "cust_id": cust_id,
-                                        "obj_id": obj_id,
-                                        "business_id": busi_id
-                                    };
-                                    res.send(result);
-                                });
-                            } else {
+                var create_json = util.getCreateJson(req.query, "obj_name,cust_id,seller_id,car_brand,car_series,car_type,car_brand_id,car_series_id,car_type_id,frame_no,mileage");
+                create_json.cust_id = cust_id;
+                create_json.seller_id = seller_id;
+
+                var exists_query = {"cust_id": cust_id, "obj_name": req.query.obj_name};
+                var exists_field = {"obj_id": 1};
+                //db.addVehicle("", obj_name, cust_id, car_brand, car_series, car_type, car_brand_id, car_series_id, car_type_id, frame_no, mileage, function (err, obj_id) {
+                db.create(db.table_name_def.TAB_VEHICLE, create_json, true, exists_query, exists_field, false, null, null, function(status, obj_id){
+                    if (status == define.DB_STATUS_FAIL) {
+                        result = {
+                            "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                        };
+                        res.send(result);
+                    } else {
+                        // 如果到店,则自动产生到店记录
+                        if (if_arrive == 1) {
+                            //db.addBusiness(cust_id, cust_name, obj_id, obj_name, mileage, business_type, business_content, function (err, busi_id) {
+                            var create_json = util.getCreateJson(req.query, "seller_id,cust_id,cust_name,obj_id,obj_name,mileage,business_type,business_content");
+                            create_json.cust_id = cust_id;
+                            create_json.obj_id = obj_id;
+                            create_json.seller_id = seller_id;
+                            create_json.arrive_time = new Date();
+                            create_json.status = 1;
+                            db.create(db.table_name_def.TAB_BUSINESS, create_json, false, null, null, false, null, null, function (status, busi_id) {
                                 result = {
                                     "status_code": define.API_STATUS_OK, //0 成功 >0 失
                                     "cust_id": cust_id,
-                                    "obj_id": obj_id
+                                    "obj_id": obj_id,
+                                    "business_id": busi_id
                                 };
                                 res.send(result);
-                            }
+                            });
+                        } else {
+                            result = {
+                                "status_code": define.API_STATUS_OK, //0 成功 >0 失
+                                "cust_id": cust_id,
+                                "obj_id": obj_id
+                            };
+                            res.send(result);
                         }
-                    });
-
+                    }
+                });
             }
         });
     }
@@ -232,47 +395,31 @@ exports.new = function (req, res) {
 // 修改用户信息
 // 修改的字段由用户自行传入, 修改什么字段就传入什么字段
 exports.update = function(req, res){
-    var cust_id = req.query.cust_id;
-    var json = util.getUpdateJson(req.query, "cust_id");
+    var json =  util.getQueryAndUpdateJson(req.query, "cust_id,mobile,email", "login_id,cust_name,cust_type,province,city,logo,photo,remark,sex,birth,contacts,address,tel,id_card_type,annual_inspect_date,change_date");
+    var query = json.query;
+    var update = json.update;
 
-    db.updateCustomer(cust_id, json, function (row) {
-        if (row == 0) {
-            result = {
-                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+    //db.updateCustomer(query, update, function (row) {
+    if(json.has_query){
+        db.update(db.table_name_def.TAB_CUSTOMER, query, update, function(status){
+            if (status == define.DB_STATUS_FAIL) {
+                result = {
+                    "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                }
+            } else {
+                result = {
+                    "status_code": define.API_STATUS_OK  //0 成功 >0 失败
+                }
             }
-        } else {
-            result = {
-                "status_code": define.API_STATUS_OK  //0 成功 >0 失败
-            }
-        }
+            res.send(result);
+        });
+    }else{
+        result = {
+            "status_code": define.API_STATUS_INVALID_PARAM  //0 成功 >0 失败
+        };
         res.send(result);
-    });
-};
+    }
 
-// 判断用户是否存在
-// 参数:
-//      query_type: 查询类型
-//      value: 查询值
-// 返回:
-//      exist: 是否存在 true: 是 false: 否
-exports.exists = function(req, res){
-    var query_type = parseInt(req.query.query_type);
-    var value = req.query.value;
-    db.exists(query_type, value, function (err, count) {
-        if(err){
-            var result = {
-                "status_code": define.API_STATUS_EXCEPTION,
-                "err_msg": "invalid query type"
-            };
-            res.send(result);
-        }else{
-            var exist = count > 0;
-            var result = {
-                "exist": exist
-            };
-            res.send(result);
-        }
-    });
 };
 
 // 获取用户信息
@@ -282,28 +429,40 @@ exports.exists = function(req, res){
 // 返回:
 //      根据fields定义的字段返回
 exports.get = function(req, res){
-    var access_token = req.query.access_token;
-    db.ifAuthCodeValid(access_token, function(valid){
-        if(valid) {
-            var s = util.decodeAES(access_token);
-            var client_id = parseInt(s.split(",")[1]);
-            var cust_id = parseInt(req.query.cust_id);
-            if(client_id != cust_id){
-                util.resSendNoRight(res);
-            }else{
-                var fields = req.query.fields;
-                var arr = fields.split(",");
-                var json = {};
-                for (var i = 0; i < arr.length; i++) {
-                    json[arr[i]] = 1;
-                }
-                db.getCustomer(cust_id, json, function (customer) {
-                    res.send(customer);
-                });
-            }
-        }else{
-            util.resSendNoRight(res);
-        }
+    var fields = req.query.fields;
+    //    cust_id: Number,
+    //    login_id: String,          //第三方登录返回的标识ID
+    //    cust_name: String,         //用户昵称
+    //    cust_type: Number,         //用户类型 0: 无车 1: 车主 2：服务商
+    //    service_type: Number,      //服务商类型（0 销售，1 售后，2 保险，3 理赔，4 代办，5 维修，6 保养）
+    //    car_brand: String,         //车辆品牌
+    //    car_series: String,        //车型
+    //    mobile: String,            //登陆手机
+    //    email: String,             //邮箱地址
+    //    password: String,          //登陆密码
+    //    parent_cust_id: Number,    //父用户ID
+    //    province: String,          //省份
+    //    city: String,              //城市
+    //    loc: {},                   //经纬度
+    //    logo: String,              //车主头像
+    //    photo: [],                 //店铺照片
+    //    remark: String,            //用户简介
+    //    sex: Number,               //性别
+    //    birth: Date,               //生日
+    //    contacts: String,          //联系人
+    //    address: String,           //联系地址
+    //    tel: String,               //联系电话
+    //    id_card_type: String,      //驾照类型
+    //    annual_inspect_date: Date, //驾照年审
+    //    change_date: Date,         //换证日期
+    //    balance: Number,           //账户余额，仅用于返还现金，暂时不支持充值
+    //    create_time: Date,         //创建时间
+    //    update_time: Date          //更新时间
+    var query_fields = "cust_id,cust_name,cust_type,service_type,car_brand,car_series,mobile,email,parent_cust_id,province,city,loc,logo,photo,remark,sex,birth,contacts,address,tel,id_card_type,annual_inspect_date,change_date,balance,create_time,update_time";
+    var json = util.getQueryAndUpdateJson(req.query, query_fields, "");
+    var query = json.query;
+    db.get(db.table_name_def.TAB_CUSTOMER, query, fields, function (customer) {
+        res.send(customer);
     });
 };
 
@@ -314,18 +473,36 @@ exports.resetPassword = function (req, res) {
     var valid_type = parseInt(req.query.valid_type);
     var valid_code = req.query.valid_code;
 
-    db.ifValidCodeValid(account, account, valid_type, valid_code, function (valid) {
-        if (!valid) {
+    // 判断校验码是否正常
+    var now = new Date();
+    var query_json = {"$or": [
+        {'mobile': account, 'valid_code': valid_code, 'valid_time': {'$gte': now}},
+        {'email': account, 'valid_code': valid_code, 'valid_time': {'$gte': now}}
+    ]};
+    db.get(db.table_name_def.TAB_VALID_CODE, query_json, "valid_code", function(valid_code){
+        if (!valid_code) {
             var result = {
                 "status_code": define.API_STATUS_INVALID_VALIDCODE,  //0 成功 >0 失败
                 "err_msg": "invalid code"
             };
             res.send(result);
         } else {
-            db.getCustomerByMobileOrMail(account, function (customer) {
+            //db.getCustomerByMobileOrMail(account, function (customer) {
+            // 判断邮箱或者手机是否登录成功
+            var query_json = {
+                "$or": [{
+                    mobile: account
+                }, {
+                    email: account
+                }]
+            };
+            db.get(db.table_name_def.TAB_CUSTOMER, query_json, "cust_id", function(customer){
                 if (customer) {
-                    db.updateCustomerPassword(customer.cust_id, password, function (row) {
-                        if (row > 0) {
+                    //db.updateCustomerPassword(customer.cust_id, password, function (row) {
+                    var query_json = {"cust_id": customer.cust_id};
+                    var update_json = {"password": password};
+                    db.update(db.table_name_def.TAB_CUSTOMER, query_json, update_json, function(status){
+                        if (status == define.DB_STATUS_OK) {
                             var result = {
                                 "status_code": define.API_STATUS_OK  //重置成功
                             };
@@ -468,20 +645,17 @@ exports.sellerDeviceList = function(req, res){
     var access_token = req.query.access_token;
     db.ifAuthCodeValid(access_token, function (valid) {
         if (valid) {
-            var parent_cust_id = req.query.parent_cust_id;
-            var max_id = req.query.max_id;
-            if (typeof max_id == "undefined") {
-                max_id = 0;
-            } else {
-                max_id = parseInt(max_id);
-            }
-            var fields = req.query.fields;
-            var arr = fields.split(",");
-            var json = {};
-            for (var i = 0; i < arr.length; i++) {
-                json[arr[i]] = 1;
-            }
-            db.getSellerDeviceList(parent_cust_id, max_id, json, function (devices) {
+            //var parent_cust_id = req.query.parent_cust_id;
+            var json = util.getQueryAndUpdateJson(query, "seller_id,cust_id,status,create_time", "");
+            var query = json.query;
+            var page = req.query.page;
+            var max_id = util.getID(req.query.max_id);
+            var min_id = util.getID(req.query.min_id);
+            var fields = util.getFieldJson(req.query.fields);
+            var sorts = util.getSortJson(req.query.sorts);
+            var limit = parseInt(req.query.limit);
+
+            db.getDeviceList(query, fields, sorts, page, min_id, max_id, limit, function (devices) {
                 var _devices = {
                     total: 0,
                     data: []

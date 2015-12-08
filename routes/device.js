@@ -783,23 +783,101 @@ exports.updateSIM = function(req, res){
 };
 
 // 修改设备信息
+// 更新条件的字段采用字段名前加_的, 目前只能通过device_id和serial更新数据, 比如通过device_id更新数据, 则条件为"_device_id=1", 比如通过serial更新数据, 则条件为"_serial=56621666610"
 // 修改的字段由用户自行传入, 修改什么字段就传入什么字段
 exports.update = function(req, res){
-    var device_id = req.query.device_id;
-    var json = util.getUpdateJson(req.query, "device_id");
+    var json =  util.getQueryAndUpdateJson(req.query, "device_id,serial", "status,cust_id,sim");
+    var query = json.query;
+    var update = json.update;
 
-    db.updateDevice(device_id, json, function (row) {
-        if (row == 0) {
-            result = {
-                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+    if(json.has_query){
+        db.update(db.table_name_def.TAB_DEVICE, query, update, function(status){
+        //db.updateDevice(query, update, function (row) {
+            if (status == define.DB_STATUS_FAIL) {
+                result = {
+                    "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                };
+            } else {
+                result = {
+                    "status_code": define.API_STATUS_OK  //0 成功 >0 失败
+                };
             }
-        } else {
-            result = {
-                "status_code": define.API_STATUS_OK  //0 成功 >0 失败
-            }
-        }
+            res.send(result);
+        });
+    }else{
+        result = {
+            "status_code": define.API_STATUS_INVALID_PARAM  //0 成功 >0 失败
+        };
         res.send(result);
-    });
+    }
+};
+
+exports.list = function(req, res){
+    var json = util.getQueryJson(req.query, "seller_id,cust_id,serial,status,create_time");
+    var query = json.query;
+    var page = req.query.page;
+    var max_id = util.getID(req.query.max_id);
+    var min_id = util.getID(req.query.min_id);
+    var fields = req.query.fields;
+    var sorts = req.query.sorts;
+    var limit = parseInt(req.query.limit);
+
+    //db.getVehicleList(parent_cust_id, max_id, json, function (vehicles) {
+    if(json.has_query) {
+        db.list(db.table_name_def.TAB_DEVICE, query, fields, sorts, page, min_id, max_id, limit, function (devices) {
+            var _devices = {
+                total: 0,
+                data: []
+            };
+            var device_ids = [];
+            _devices.total = devices.total;
+            for (var i = 0; i < devices.data.length; i++) {
+                device_ids.push(devices.data[i].device_id);
+                _devices.data.push(devices.data[i].toJSON());
+            }
+
+            var query = {'device_id': {"$in": device_ids}};
+            var fields = "cust_id,device_id,obj_name,car_brand_id,car_brand";
+            db.list(db.table_name_def.TAB_VEHICLE, query, fields, "", "", 0, 0, -1, function (vehicles) {
+                var cust_ids = [];
+                for (var i = 0; i < vehicles.length; i++) {
+                    cust_ids.push(vehicles[i].cust_id);
+                }
+                cust_ids = util.unique(cust_ids);
+                query = {'cust_id': {'$in': cust_ids}};
+                fields = "cust_id,cust_name";
+                db.list(db.table_name_def.TAB_CUSTOMER, query, fields, "", "", 0, 0, -1, function (customers) {
+                    for (var i = 0; i < vehicles.length; i++) {
+                        for (var j = 0; j < customers.length; j++) {
+                            if (vehicles[i].cust_id == customers[j].cust_id) {
+                                vehicles[i].cust_name = customers[j].cust_name;
+                            }
+                        }
+                    }
+                    for (var i = 0; i < _devices.data.length; i++) {
+                        _devices.data[i].obj_name = "";
+                        _devices.data[i].obj_id = "";
+                        _devices.data[i].car_brand_id = 0;
+                        _devices.data[i].car_brand = "";
+                        _devices.data[i].cust_name = "";
+                        for (var j = 0; j < vehicles.length; j++) {
+                            if (_devices.data[i].device_id == vehicles[j].device_id) {
+                                _devices.data[i].obj_id = vehicles[j].obj_id;
+                                _devices.data[i].obj_name = vehicles[j].obj_name;
+                                _devices.data[i].car_brand_id = vehicles[j].car_brand_id;
+                                _devices.data[i].car_brand = vehicles[j].car_brand;
+                                _devices.data[i].cust_name = vehicles[j].cust_name;
+                                break;
+                            }
+                        }
+                    }
+                    res.send(_devices);
+                });
+            });
+        });
+    }else{
+        res.send(define.EMPTY_ARRAY);
+    }
 };
 
 exports.delete = function(req, res){

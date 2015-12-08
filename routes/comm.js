@@ -168,7 +168,13 @@ exports.validCode = function (req, res) {
     var mobile = req.query.mobile;
     var email = req.query.email;
 
-    db.ifValidCodeValid(mobile, email, valid_type, valid_code, function (valid) {
+    var now = new Date();
+    var query_json = {"$or": [
+        {'mobile': mobile, 'valid_code': valid_code, 'valid_time': {'$gte': now}},
+        {'email': email, 'valid_code': valid_code, 'valid_time': {'$gte': now}}
+    ]};
+    db.get(db.table_name_def.TAB_VALID_CODE, query_json, "valid_code", function(valid_code){
+        var valid = valid_code != null;
         var result = {
             "valid": valid
         };
@@ -189,8 +195,14 @@ exports.sendSMS = function (req, res) {
     }
     sms.sendSMSByGateway(mobile, tpl_id, valid_code, function (obj) {
         if (obj.status_code == 0) {
-            db.saveValidCode(mobile, "", 1, valid_code, function(err){
-                if(!err){
+            //db.saveValidCode(mobile, "", 1, valid_code, function(err){
+            var valid_time = new Date();
+            var d = valid_time.getTime() + 5 * 60 * 1000;  //5分钟有效期
+            valid_time = new Date(d);
+            var query_json = {'mobile': mobile};
+            var update_json = {'valid_code': valid_code, 'valid_time': valid_time};
+            db.findAndUpdate(db.table_name_def.TAB_VALID_CODE, query_json, update_json, function(status, doc){
+                if(status == define.DB_STATUS_OK){
                     var result = {
                         "status_code": define.API_STATUS_OK  //0 成功 >0 失败
                     };

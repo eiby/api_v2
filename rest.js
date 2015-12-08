@@ -8,6 +8,7 @@ var express = require('express');
 var index = require('./routes/index');
 var http = require('http');
 var path = require('path');
+var pay = require('./routes/pay');
 
 var app = express();
 
@@ -44,6 +45,9 @@ app.all('*', function(req, res, next) {
 // 路由接口可与实际接口分开部署, 也可以和实际接口部署在同一服务器
 app.get('/router/rest', index.rest);
 app.post('/router/rest', index.rest);
+
+// 支付通知接口
+app.post('/pay/notify', pay.doWeixinPayNotify);
 
 // 创建http服务器
 if(process.env.NODE_ENV == "development"){
