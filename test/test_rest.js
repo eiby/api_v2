@@ -3,7 +3,35 @@
  * User: 1
  * Date: 14-1-2
  * Time: 下午4:38
- * To change this template use File | Settings | File Templates.
+ * test wistorm rest api
+ *
+ * 除了customer表有一些比较特殊的操作,比如登陆,注册,重置密码之外,
+ * 大部分的数据表都具有create,update,delete,list,get五个通用操作, 根据数据表, 传入字段名key及字段值value即可实现相应操作.
+ * create接口参数格式:
+ *      新增参数: key=value, 比如cust_name=测试&address=测试
+ * update接口参数格式:
+ *      条件参数: _key=value, 比如_obj_id=1
+ *      更新参数: key=value, 比如obj_name=修改
+ * delete接口参数格式:
+ *      条件参数: key=value, 比如obj_id=1
+ * get接口参数格式:
+ *      条件参数: key=value, 比如obj_id=1
+ *      fields: 返回字段, 格式为key1,key2,key3, 比如cust_id,cust_name
+ * list接口参数格式:
+ *      查询参数:
+ *          一般格式: key=value
+ *          模糊搜索: key=^value, 比如obj_name=^粤B1234
+ *          时间段: key=begin_time@end_time, 比如create_time=2015-11-01@2015-12-01
+ *      fields: 返回字段, 格式为key1,key2,key3, 比如cust_id,cust_name
+ *      sorts: 排序字段, 格式为key1,key2,key3, 如果为倒序在字段名称前加-, 比如-key1,key2
+ *      page: 分页字段, 一般为数据表的唯一ID
+ *      min_id: 本页最小分页ID
+ *      max_id: 本页最大分页ID
+ *      limit: 返回数量
+ *
+ * 访问信令access_token:
+ *      除了个别接口, 大部分的接口是需要传入access_token, 开发者需要在登录之后保存access_token,
+ *      之后在调用其他接口的时候传入, access_token的有效期为24小时, 过期之后需要重新获取.
  */
 
 var url = require("url");
@@ -306,6 +334,26 @@ WiStormAPI.prototype.get = function (query_json, fields, access_token, callback)
     this.sign_obj.method = 'wicare.user.get';
     this.sign_obj.access_token = access_token;
     //this.sign_obj.cust_id = cust_id;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 判断用户是否存在
+// 参数:
+//    mobile: 手机号
+//    cust_name: 用户名
+// 返回：
+//    返回是否存在
+WiStormAPI.prototype.exists = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.user.exists';
     for (var key in query_json) {
         this.sign_obj[key] = query_json[key];
     }
@@ -756,6 +804,300 @@ WiStormAPI.prototype.getExceptionList = function (query_json, fields, sorts, pag
     });
 };
 
+// 创建提醒提醒设置
+// 参数:
+//    option_type: Number,   //提醒类别 0:保养到期 1:长时间未到店 2:故障
+//    cust_id: Number,       //用户id
+//    seller_id: Number,     //商户Id
+//    mileage: Number,       //间隔里程，车辆保养以保养里程和保养时间先到者为准
+//    duration: Number,      //间隔时间
+//    object: String,        //针对目标, 如果为品牌, 则为品牌Id, 可以设置多品牌, 中间用逗号隔开, 如果为车辆, 则为车辆Id, 中间用逗号隔开, 如果为空, 则表示商户下所有车辆
+// 返回：
+//    status_code: 状态码
+//    exception_id: 新建异常ID
+WiStormAPI.prototype.createExceptionOption = function (option_type, option_name, cust_id, seller_id, mileage, duration, object, msg_template, access_token, callback) {
+    this.sign_obj.method = 'wicare.exception_option.create';
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.option_type = option_type;
+    this.sign_obj.option_name = option_name;
+    this.sign_obj.cust_id = cust_id;
+    this.sign_obj.seller_id = seller_id;
+    this.sign_obj.mileage = mileage;
+    this.sign_obj.duration = duration;
+    this.sign_obj.object = object;
+    this.sign_obj.msg_template = msg_template;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 更新提醒设置
+// 参数:
+//    option_type: Number,   //提醒类别 0:保养到期 1:长时间未到店 2:故障
+//    cust_id: Number,       //用户id
+//    seller_id: Number,     //商户Id
+//    mileage: Number,       //间隔里程，车辆保养以保养里程和保养时间先到者为准
+//    duration: Number,      //间隔时间
+//    object: String,        //针对目标, 如果为品牌, 则为品牌Id, 可以设置多品牌, 中间用逗号隔开, 如果为车辆, 则为车辆Id, 中间用逗号隔开, 如果为空, 则表示商户下所有车辆
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.updateExceptionOption = function (query_json, update_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.exception_option.update';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj["_" + key] = query_json[key];
+    }
+    for (var key in update_json) {
+        this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 删除异常车况
+// 参数:
+//    option_id: 提醒Id
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.deleteExceptionOption = function (query_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.exception_option.delete';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取商户的提醒设置列表
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getExceptionOptionList = function (query_json, fields, sorts, page, min_id, max_id, limit, access_token, callback) {
+    this.sign_obj.method = 'wicare.exception_options.list';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 创建提醒提醒设置
+// 参数:
+//    user_id: Number,               //用户id
+//    cust_name: String,             //发送名称
+//    friend_id: Number,             //好友id
+//    type: Number,                  //私信类型 0:文本  1:图片  2:语音  3:文件 4:位置
+//    url: String,                   //如果图片，或者语音，则需设置该地址
+//    content: String,               //文本内容
+//    voice_len: Number,             //语音长度
+//    lon: Number,                   //发送位置经度
+//    lat: Number,                   //发送位置纬度
+//    address: String,               //发送位置地址
+// 返回：
+//    status_code: 状态码
+//    exception_id: 新建异常ID
+WiStormAPI.prototype.createChat = function (user_id, cust_name, friend_id, type, url, content, voice_len, lon, lat, address, access_token, callback) {
+    this.sign_obj.method = 'wicare.chat.create';
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.user_id = user_id;
+    this.sign_obj.cust_name = cust_name;
+    this.sign_obj.friend_id = friend_id;
+    this.sign_obj.type = type;
+    this.sign_obj.url = url;
+    this.sign_obj.content = content;
+    this.sign_obj.lon = lon;
+    this.sign_obj.lat = lat;
+    this.sign_obj.address = address;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 更新聊天记录
+// 参数:
+//    option_type: Number,   //提醒类别 0:保养到期 1:长时间未到店 2:故障
+//    cust_id: Number,       //用户id
+//    seller_id: Number,     //商户Id
+//    mileage: Number,       //间隔里程，车辆保养以保养里程和保养时间先到者为准
+//    duration: Number,      //间隔时间
+//    object: String,        //针对目标, 如果为品牌, 则为品牌Id, 可以设置多品牌, 中间用逗号隔开, 如果为车辆, 则为车辆Id, 中间用逗号隔开, 如果为空, 则表示商户下所有车辆
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.updateChat = function (query_json, update_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.chat.update';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj["_" + key] = query_json[key];
+    }
+    for (var key in update_json) {
+        this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取聊天记录
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getChatList = function (query_json, fields, sorts, page, min_id, max_id, limit, access_token, callback) {
+    this.sign_obj.method = 'wicare.chats.list';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取聊天记录
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getRelationList = function (query_json, fields, sorts, page, min_id, max_id, limit, access_token, callback) {
+    this.sign_obj.method = 'wicare.relations.list';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取里程日曲线或者平均油耗日曲线
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getDayTripList = function (query_json, fields, sorts, page, min_id, max_id, limit, access_token, callback) {
+    this.sign_obj.method = 'wicare.day_trips.list';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取电压曲线及水温曲线
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getDeviceObdDataList = function (query_json, fields, sorts, page, min_id, max_id, limit, access_token, callback) {
+    this.sign_obj.method = 'wicare.device_obd_datas.list';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20c93b72773bf0f8d0905052', 'json', '1.0', 'md5');
 
 var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e55da7bb5e";
@@ -801,19 +1143,17 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    console.log(obj);
 //});
 
-//存在测试(已移除), 直接使用获取用户信息即可
+//存在测试
 //var query_json = {
-//    mobile: "13316891158"
+//    mobile: "13316560478"
 //};
-//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
-//    wistorm_api.get(query_json, 'cust_id', obj.access_token, function(obj){
-//        console.log(obj);
-//    });
+//wistorm_api.exists(query_json, 'cust_id', function (obj) {
+//    console.log(obj);
 //});
 
 //获取用户信息, 授权获取
 //var query_json = {
-//    cust_id: 1
+//    cust_id: 19
 //};
 //wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
 //    wistorm_api.get(query_json, 'cust_id,cust_name,remark', obj.access_token, function(obj){
@@ -890,8 +1230,7 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    evaluate_time: Date         //评价时间
 
 //var query_json = {
-//    seller_id: 1,
-//    status: 1,
+//    obj_name: "粤123456",
 //    arrive_time: "2015-11-01@2015-12-01"
 //};
 //wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
@@ -1126,9 +1465,8 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    update_time: Date              //更新时间
 //var query_json = {
 //    seller_id: 1,
-//    exp_type: 2
+//    exp_type: 1
 //};
-//
 //wistorm_api.getExceptionList(query_json, "exception_id,cust_id,cust_name,obj_id,obj_name,mileage,car_brand_id,exp_type,last_arrive,exp_reason",
 //    "exception_id", "exception_id", 0, 0, 10, test_access_token, function (obj) {
 //    console.log(obj);
@@ -1142,45 +1480,154 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    console.log(obj);
 //});
 
-// 测试微信模板信息发送
-var iconv = require('iconv-lite');
-function encodeURIComponent_GBK(str)
-{
-    if(str==null || typeof(str)=='undefined' || str=='')
-        return '';
+//新增提醒测试
+//wistorm_api.createExceptionOption(1, "保养提醒测试", 0, 1, 5000, 0, "", "亲爱的%用户名称%，你的爱车%车牌号%已保养到期，请到店保养。", test_access_token, function(obj){
+//    console.log(obj);
+//});
+//wistorm_api.createExceptionOption(2, "长时间未到店测试", 0, 1, 0, 15 * 3600, "", "亲爱的%用户名称%，你的爱车%车牌号%已久未到店保养，请及时到店检查。", test_access_token, function(obj){
+//    console.log(obj);
+//});
 
-    var a = str.toString().split('');
+//更新提醒, 比如已推送, 注意日期要位yyyy-MM-dd hh:mm:ss更新
+//var query_json = {
+//    option_id: 6
+//};
+//var update_json = {
+//    mileage: 7500
+//};
+//wistorm_api.updateExceptionOption(query_json, update_json, test_access_token, function(obj){
+//    console.log(obj);
+//});
 
-    for(var i=0; i<a.length; i++) {
-        var ai = a[i];
-        if( (ai>='0' && ai<='9') || (ai>='A' && ai<='Z') || (ai>='a' && ai<='z') || ai==='.' || ai==='-' || ai==='_') continue;
-        var b = iconv.encode(ai, 'gbk');
-        var e = ['']; // 注意先放个空字符串，最保证前面有一个%
-        for(var j = 0; j<b.length; j++)
-            e.push( b.toString('hex', j, j+1).toUpperCase() );
-        a[i] = e.join('%');
-    }
-    return a.join('');
-}
+//获取提醒列表
+//var query_json = {
+//    seller_id: 1,
+//    option_type: 1
+//};
+//wistorm_api.getExceptionOptionList(query_json, "option_id,option_type,cust_id,seller_id,mileage,duration,object",
+//    "option_id", "option_id", 0, 0, 10, test_access_token, function (obj) {
+//        console.log(obj);
+//    });
 
-var name = encodeURIComponent_GBK("WiCARE汽车环保卫士");
-var url = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=cTwp2kKIPG7Zp5VHocJfZCCcjbo3vFe7xs6iczK3ffHwFTnV2i0uxdG1uzbe2Iapa2snntA0mF4b9WiZJhxVwLAGSFyc2w0XTcU4NG6t4O8MYReAHAAMF";
-var data = {
-    "touser": "oudYOuPNivMVcHiE5YlC1JtsVq4E",
-    "template_id": "TzlTbXYteI9RPLLrWll6Dz5P6sBB1UUlsY-vs6ucWYE",
-    "url": "http://weixin.qq.com/download",
-    "data": {
-        "name": {
-            "value": "WiCARE汽车环保卫士",
-            "color": "#173177"
-        },
-        "remark": {
-            "value": "349.00",
-            "color": "#173177"
-        }
-    }
+//删除提醒
+//var query_json = {
+//    option_id: 9
+//};
+//wistorm_api.deleteExceptionOption(query_json, test_access_token, function(obj){
+//    console.log(obj);
+//});
+
+//新增聊天记录
+//wistorm_api.createChat(1, "商户名称", 19, 1, "", "测试信息", 0, 0, 0, "", test_access_token, function(obj){
+//    console.log(obj);
+//});
+
+//更新聊天记录, 比如已读, 注意日期要位yyyy-MM-dd hh:mm:ss更新
+//var query_json = {
+//    chat_id: 4
+//};
+//var read_time = new Date();
+//read_time = read_time.format("yyyy-MM-dd hh:mm:ss");
+//var update_json = {
+//    status: 1,
+//    read_time: read_time
+//};
+//wistorm_api.updateChat(query_json, update_json, test_access_token, function(obj){
+//    console.log(obj);
+//});
+
+//获取聊天记录
+//    user_id: Number,               //用户id
+//    cust_name: String,             //发送名称
+//    friend_id: Number,             //好友id
+//    type: Number,                  //私信类型 0:文本  1:图片  2:语音  3:文件 4:位置
+//    url: String,                   //如果图片，或者语音，则需设置该地址
+//    content: String,               //文本内容
+//    voice_len: Number,             //语音长度
+//    lon: Number,                   //发送位置经度
+//    lat: Number,                   //发送位置纬度
+//    address: String,               //发送位置地址
+var query_json = {
+    user_id: 19,
+    friend_id: 1
 };
+wistorm_api.getChatList(query_json, "user_id,friend_id,sender_id,receiver_id,type,url,content,voice_len,lon,lat,address,create_time,read_time",
+    "chat_id", "chat_id", 0, 0, 10, test_access_token, function (obj) {
+        console.log(obj);
+    });
 
-util._postssl(url, data, function(obj){
-    console.log(obj);
-});
+//获取好友关系记录
+//    relat_id: Number,              //关系id
+//    user_id: Number,               //用户id
+//    friend_id: Number,             //好友id
+//    friend_type: Number,           //好友类型 4: 通知 99: 私信
+//    order_id: Number,              //排序id  4: 通知 99: 私信
+//    friend_name: String,           //好友名称
+//    sex: Number,                   //好友性别
+//    logo: String,                  //好友logo
+//    type: Number,                  //最后私信类型 0:文本  1:图片  2:语音  3:文件  4:文件
+//    content: String,               //最后私信内容
+//    send_time: Date,               //最后私信时间
+//    create_time: Date,             //创建时间
+//    unread_count: Number,          //未读私信
+//    status: Number                 //0：临时好友  1：正式好友
+//var query_json = {
+//    user_id: 1,
+//    friend_id: 19
+//};
+//wistorm_api.getRelationList(query_json, "relat_id,user_id,friend_id,friend_type,friend_name,sex,logo,content,send_time,create_time,unread_count,status",
+//    "relat_id", "relat_id", 0, 0, 10, test_access_token, function (obj) {
+//        console.log(obj);
+//});
+
+//获取车辆里程曲线和平均油耗曲线
+//    serial: String,                        //终端序列号
+//    rcv_day: Date,                         //统计日期
+//    total_duration: Number,                //每日运行时长
+//    total_distance: Number,                //每日里程
+//    total_fuel: Number,                    //每日油耗
+//    drive_score: Number,                   //驾驶得分
+//    safe_score: Number,                    //安全得分
+//    eco_score: Number,                     //经济得分
+//    env_score: Number,                     //环保得分
+//    drive_advice: String,                  //驾驶建议
+//    avg_fuel: Number,                      //百公里油耗
+//    total_fee: Number,                     //每日花费
+//var query_json = {
+//    serial: "56621647610",
+//    rcv_day: "2015-12-01@2015-12-31"
+//};
+//wistorm_api.getDayTripList(query_json, "rcv_day,total_distance,avg_fuel", "day_trip_id", "day_trip_id", 0, 0, -1, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+//获取电瓶电压曲线和水温曲线
+//    obd_data_id: Number
+//    serial: String, //serial
+//    rcv_time: Date,
+//    obd_data: {
+    //   dpdy: 5,      //电瓶电压 V
+    //   jqmkd: 10,    //节气门开度 %
+    //   fdjzs: 750,   //发动机转速 RPM
+    //   sw: 10,       //水温  °C
+    //   chqwd: 10,    //三元催化器温度 °C
+    //   syyl: 40,     //剩余油量 L
+    //   hjwd: 30,     //环境温度 °C
+    //   dqyl: 100,    //大气压力 kPa
+    //   jqyl: 100,    //进气压力 kPa
+    //   jqwd: 100,    //进气温度 °C
+    //   ryyl: 300,    //燃油压力 kPa
+    //   fdjfz: 200,   //发动机负载 %
+    //   cqryxz: 100,  //长期燃油修正
+    //   dhtqj: 30     //点火角提前 °
+//   }
+//var query_json = {
+//    serial: "56621647610",
+//    rcv_time: "2015-12-01@2015-12-31"
+//};
+//wistorm_api.getDeviceObdDataList(query_json, "rcv_time,obd_data.dpdy,obd_data.sw", "obd_data_id", "obd_data_id", 0, 0, -1, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+
+

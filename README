@@ -3,19 +3,3 @@ WiStorm Rest API
 WiStorm Rest API is rest api to access WOP.
 
 IOS, Android and JS SDK need to wrap the access to this api.
-
- {
-           "touser":"oudYOuExhc3pse6f5ZX1re9C3s_I",
-           "template_id":"TzlTbXYteI9RPLLrWll6Dz5P6sBB1UUlsY-vs6ucWYE",
-           "url":"http://weixin.qq.com/download",
-           "data":{
-                   "name": {
-                       "value":"WiCARE汽车环保卫士",
-                       "color":"#173177"
-                   },
-                   "remark":{
-                       "value":"价格: 349.00",
-                       "color":"#173177"
-                   }
-           }
- }

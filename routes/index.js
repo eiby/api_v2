@@ -83,6 +83,7 @@ exports.rest = function(req, res){
                            if(method == 'wicare.user.access_token' || method == 'wicare.user.login' || method == "wicare.user.sso_login"){
                                params = params + "&app_key=" + app_key;
                            }
+
                            if(method == "wicare.file.upload"){
                                file.upload(req, res);
                            }else{

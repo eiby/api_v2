@@ -15,6 +15,7 @@ var url = require("url");
 //检查全局令牌
 exports.checkAccessToken = function (req, res, next){
     var authorize = config.authorize;
+    //console.log(config);
     // 判断是否需要验证令牌, 如果不需要, 则继续
     var obj = url.parse(req.url);
     if(authorize[obj.pathname]){
@@ -291,14 +292,13 @@ exports.new = function (req, res) {
     //    if_arrive: 是否到店, 1则需要传入到店类型和备注, 0则不需要
     //    business_type: 业务类型
     //    business_content: 业务内容
-    var mode = req.query.mode;
+    var mode = parseInt(req.query.mode);
     var if_arrive = parseInt(req.query.if_arrive);
     var seller_id = req.query.seller_id;
     var create_json = util.getCreateJson(req.query, "seller_id,cust_type,cust_name,mobile,password");
     var mobile = req.query.mobile;
     create_json.password = util.md5(mobile.substr(mobile.length - 6, 6));
-    //var cust_type = req.query.cust_type;
-    //var cust_name = req.query.cust_name;
+    var cust_name = req.query.cust_name;
     //var mobile = req.query.mobile;
     //var obj_name = req.query.obj_name;
     //var frame_no = req.query.frame_no;
@@ -348,6 +348,9 @@ exports.new = function (req, res) {
                 var create_json = util.getCreateJson(req.query, "obj_name,cust_id,seller_id,car_brand,car_series,car_type,car_brand_id,car_series_id,car_type_id,frame_no,mileage");
                 create_json.cust_id = cust_id;
                 create_json.seller_id = seller_id;
+                create_json.cust_name = cust_name;
+                create_json.arrive_count = 0;
+                create_json.evaluate_count = 0;
 
                 var exists_query = {"cust_id": cust_id, "obj_name": req.query.obj_name};
                 var exists_field = {"obj_id": 1};
@@ -458,8 +461,8 @@ exports.get = function(req, res){
     //    balance: Number,           //账户余额，仅用于返还现金，暂时不支持充值
     //    create_time: Date,         //创建时间
     //    update_time: Date          //更新时间
-    var query_fields = "cust_id,cust_name,cust_type,service_type,car_brand,car_series,mobile,email,parent_cust_id,province,city,loc,logo,photo,remark,sex,birth,contacts,address,tel,id_card_type,annual_inspect_date,change_date,balance,create_time,update_time";
-    var json = util.getQueryAndUpdateJson(req.query, query_fields, "");
+    var query_fields = "cust_id,cust_name,cust_type,service_type,car_brand,car_series,mobile,email,seller_id,province,city,loc,logo,photo,remark,sex,birth,contacts,address,tel,id_card_type,annual_inspect_date,change_date,balance,create_time,update_time";
+    var json = util.getQueryJson(req.query, query_fields);
     var query = json.query;
     db.get(db.table_name_def.TAB_CUSTOMER, query, fields, function (customer) {
         res.send(customer);
@@ -954,6 +957,25 @@ exports.total = function(req, res){
         }else{
             util.resSendNoRight(res);
         }
+    });
+};
+
+// 判断用户是否存在
+// 参数:
+// 返回:
+//      exist: 是否存在 true: 是 false: 否
+exports.exists = function(req, res){
+    var query_fields = "cust_name,email,mobile";
+    var json = util.getQueryJson(req.query, query_fields);
+    var query = json.query;
+    db.get(db.table_name_def.TAB_CUSTOMER, query, "cust_id", function (customer) {
+        var result = {
+            "exist": false
+        };
+        if(customer){
+            result.exist = true;
+        }
+        res.send(result);
     });
 };
 

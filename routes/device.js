@@ -813,7 +813,7 @@ exports.update = function(req, res){
 };
 
 exports.list = function(req, res){
-    var json = util.getQueryJson(req.query, "seller_id,cust_id,serial,status,create_time");
+    var json = util.getQueryJson(req.query, "seller_id,cust_id,device_id,serial,status,create_time");
     var query = json.query;
     var page = req.query.page;
     var max_id = util.getID(req.query.max_id);

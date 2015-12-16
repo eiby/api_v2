@@ -14,6 +14,8 @@ var express = require('express')
     , comm = require('./routes/comm')
     , pay = require('./routes/pay')
     , exception = require('./routes/exception')
+    , chat = require('./routes/chat')
+    , core = require('./routes/core')
     , http = require('http')
     , path = require('path');
 
@@ -170,7 +172,7 @@ app.get('/customer/update', customer.update);
 //    customer表里面的除了cust_id, create_time, update_time之外的所有字段
 // 返回：
 //    status_code: 状态码
-//app.get('/customer/exists', customer.exists);
+app.get('/customer/exists', customer.exists);
 
 // 获取用户信息
 // 参数:
@@ -365,6 +367,19 @@ app.get('/exceptions/list', exception.list);
 //    微信支付相关参数
 app.get('/pay/weixin', pay.doWeixinPay);
 
+//社交接口
+app.get('/chat/create', chat.new);
+app.get('/chat/list', chat.list);
+
+// 测试微信接口
+app.get('/weixin/send', chat.sendWeixin);
+
+// 通用接口调用
+app.get('/:table/create', core.new);
+app.get('/:table/update', core.update);
+app.get('/:table/list', core.list);
+app.get('/:table/delete', core.delete);
+app.get('/:table/get', core.get);
 
 // 创建http服务器
 if(process.env.NODE_ENV == "development"){

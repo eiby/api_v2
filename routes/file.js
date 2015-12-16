@@ -15,7 +15,7 @@ var oss = require('./oss');
 exports.upload = function(req, res){
     var obj;
     if (req.files.image) {
-        if (req.files.image.size == 0 || req.files.image.size > 500 * 1024) {
+        if (req.files.image.size == 0 || req.files.image.size > 5000 * 1024) {
             obj = {
                 status_code: define.API_STATUS_UPLOAD_FAIL,  //0 成功 >0 失败
                 err_msg: "no file or file size larger than limit size."
@@ -49,7 +49,8 @@ exports.upload = function(req, res){
             }
             // 指定文件上传后的目录 - 示例为"images"目录。
             var target_path = "photo/" + time_stamp + '.' + extension_name;
-            var target_url = 'http://img.bibibaba.cn/photo/' + time_stamp + '.' + extension_name;
+            var target_url = 'http://img2.bibibaba.cn/photo/' + time_stamp + '.' + extension_name + '@!baba';
+            //var target_url = 'http://baba-img.img-cn-hangzhou.aliyuncs.com/photo/' + time_stamp + '.' + extension_name + '@!baba';
             // 保存到阿里云OSS
             fs.readFile(tmp_path, function (err, data) {
                 if (err) {

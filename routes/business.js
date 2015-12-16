@@ -21,7 +21,6 @@ exports.new = function (req, res) {
     //    business_content: 业务内容
     //var cust_id = req.query.cust_id;
     //var cust_name = req.query.cust_name;
-    //var obj_id = req.query.obj_id;
     //var obj_name = req.query.obj_name;
     //var mileage = parseInt(req.query.mileage);
     //var business_type = parseInt(req.query.business_type);
@@ -42,6 +41,22 @@ exports.new = function (req, res) {
                 "business_id": busi_id
             };
             res.send(result);
+
+            // 更新车辆的到店次数及最后到店时间
+            var obj_id = req.query.obj_id;
+            var query_json = {
+                obj_id: obj_id
+            };
+            var last_arrive = new Date();
+            var update_json = {
+                "$set": {"business_status": 1, "last_arrive_time": last_arrive},
+                "$inc": {"arrive_count": 1}
+            };
+            db.update2(db.table_name_def.TAB_VEHICLE, query_json, update_json, function (status) {
+                if (status == define.DB_STATUS_FAIL) {
+                    console.log("update vehicle business status failed.");
+                }
+            });
         }
     });
 };
@@ -156,7 +171,7 @@ exports.list = function(req, res){
     //} else {
     //    max_id = parseInt(max_id);
     //}
-    var json = util.getQueryJson(req.query, "seller_id,status,arrive_time,leave_time,evaluate_time");
+    var json = util.getQueryJson(req.query, "seller_id,status,obj_id,cust_id,obj_name,arrive_time,leave_time,evaluate_time");
     var query = json.query;
     var page = req.query.page;
     var max_id = util.getID(req.query.max_id);
