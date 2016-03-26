@@ -15,6 +15,14 @@ var express = require('express')
     , pay = require('./routes/pay')
     , exception = require('./routes/exception')
     , chat = require('./routes/chat')
+    , command = require('./routes/command')
+    , day_trip = require('./routes/day_trip')
+    , gps_data = require('./routes/gps_data')
+    , air_data = require('./routes/air_data')
+    , weixin_friend = require('./routes/weixin_friend')
+    , location = require('./routes/location')
+    , lottery = require('./routes/lottery')
+    , game = require('./routes/game')
     , core = require('./routes/core')
     , http = require('http')
     , path = require('path');
@@ -84,6 +92,13 @@ app.get('/base/car_series/list', dict.seriesList);
 //      go_name: 年份
 //      name: 车款名称
 app.get('/base/car_types/list', dict.typeList);
+
+// 获取空气质量
+// 参数：
+//      city: 城市
+// 返回：
+
+app.get('/base/aqi/get', dict.aqi);
 
 // 获取全局令牌
 // 参数：
@@ -167,6 +182,14 @@ app.get('/customer/create', customer.new);
 //    status_code: 状态码
 app.get('/customer/update', customer.update);
 
+// 绑定用户接口
+// 参数:
+//    cust_id: 用户ID
+//    customer表里面的除了cust_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+app.get('/customer/bind', customer.bind);
+
 // 判断用户是否存在
 // 参数:
 //    customer表里面的除了cust_id, create_time, update_time之外的所有字段
@@ -202,12 +225,41 @@ app.get('/customer/valid_code', comm.validCode);
 //    status_code: 状态码
 app.get('/comm/sms/send', comm.sendSMS);
 
+// 获取图片验证码
+// 参数:
+//    mobile: 手机号码后者open_id
+// 返回：
+//    status_code: 状态码
+//    valid_code_img: 图片编码数据
+app.get('/util/pic_valid_code/get', comm.sendPicValidCode);
+
+// 创建车辆信息接口
+// 参数:
+//    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+app.get('/vehicle/create', vehicle.new);
+
 // 修改车辆信息接口
 // 参数:
 //    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
 // 返回：
 //    status_code: 状态码
 app.get('/vehicle/update', vehicle.update);
+
+// 删除车辆信息接口
+// 参数:
+//    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+app.get('/vehicle/delete', vehicle.delete);
+
+// 获取车辆信息
+// 参数:
+//    vehicle表里面的除了obj_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+app.get('/vehicles/get', vehicle.info);
 
 // 获取商户的用户车辆列表
 // 参数:
@@ -353,6 +405,40 @@ app.get('/exception/delete', exception.delete);
 //    由fields设定的字段
 app.get('/exceptions/list', exception.list);
 
+// 更新日统计字段加1
+// 参数:
+//    day_trip_id: 日记录ID;
+// 返回：
+//    按fields返回数据列表
+app.get('/day_trip/inc', day_trip.inc);
+
+// 获取设备历史数据
+// 参数:
+//    serial: 设备ID
+//    rcv_time: 接收时间
+//    gps_time: 定位时间
+// 返回:
+//    fields设定的字段
+app.get('/gps_data/list', gps_data.list);
+
+// 获取设备历史空气数据
+// 参数:
+//    serial: 设备ID
+//    rcv_time: 接收时间
+//    gps_time: 定位时间
+// 返回:
+//    fields设定的字段
+app.get('/air_data/list', air_data.list);
+
+// 新建指令发送
+// 参数:
+//    device_id: 设备ID
+//    cmd_type: 指令类型
+//    params: 对应参数
+// 返回：
+//    status_code: 状态码
+app.get('/command/create', command.new);
+
 // 微信支付接口
 // 参数:
 //    cust_id: 客户ID(商户ID或者车主ID)
@@ -367,12 +453,44 @@ app.get('/exceptions/list', exception.list);
 //    微信支付相关参数
 app.get('/pay/weixin', pay.doWeixinPay);
 
+// 微信支付到用户接口
+// 参数:
+//    cust_id: 客户ID(商户ID或者车主ID)
+//    open_id: 微信用户的openid
+//    order_type: 订单类型 1:设备销售 2:服务费 3:红包
+//    product_name: 产品名称
+//    remark: 产品描述
+//    unit_price: 单价(分)
+//    quantity: 数量
+//    total_price: 总价(分)
+// 返回：
+//    微信支付相关参数
+//app.get('/pay/weixin2user', pay.doWeixinPay2User);
+
 //社交接口
 app.get('/chat/create', chat.new);
 app.get('/chat/list', chat.list);
 
+//微信好友关系接口
+app.get('/weixin_friend/update', weixin_friend.update);
+
 // 测试微信接口
 app.get('/weixin/send', chat.sendWeixin);
+
+// 地点接口
+app.get('/location/list', location.list);
+
+// 抽奖接口
+app.get('/lottery/draw', lottery.draw);
+
+// 领奖接口
+app.get('/lottery/receive', lottery.receive);
+
+// 创建游戏接口
+app.get('/game/create', game.new);
+
+// 获取游戏接口
+app.get('/game/get', game.get);
 
 // 通用接口调用
 app.get('/:table/create', core.new);

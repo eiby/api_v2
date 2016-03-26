@@ -73,14 +73,15 @@ exports.rest = function(req, res){
            // 权限控制
            // 签名验证
            if(sign_method == "md5"){
-               var s = util.md5(app_secret + encodeURI(raw(req.query)) + app_secret);
+               var e = app_secret + encodeURI(raw(req.query)) + app_secret;
+               var s = util.md5(e);
                s = s.toUpperCase(); //把签名转化为大写
                if(sign == s) {
                    if(v == "1.0"){
                        var map_url = map[method];
                        if(map_url && map_url != undefined && map_url != ""){
                            var params = raw2(req.query);
-                           if(method == 'wicare.user.access_token' || method == 'wicare.user.login' || method == "wicare.user.sso_login"){
+                           if(method == 'wicare.user.access_token' || method == 'wicare.user.login' || method == "wicare.user.sso_login" || method == "wicare.crash.create"){
                                params = params + "&app_key=" + app_key;
                            }
 

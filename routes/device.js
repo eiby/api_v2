@@ -786,7 +786,7 @@ exports.updateSIM = function(req, res){
 // 更新条件的字段采用字段名前加_的, 目前只能通过device_id和serial更新数据, 比如通过device_id更新数据, 则条件为"_device_id=1", 比如通过serial更新数据, 则条件为"_serial=56621666610"
 // 修改的字段由用户自行传入, 修改什么字段就传入什么字段
 exports.update = function(req, res){
-    var json =  util.getQueryAndUpdateJson(req.query, "device_id,serial", "status,cust_id,sim");
+    var json =  util.getQueryAndUpdateJson(req.query, "device_id,serial", "status,cust_id,sim,seller_id,params.air_mode,params.air_time");
     var query = json.query;
     var update = json.update;
 
@@ -838,19 +838,19 @@ exports.list = function(req, res){
 
             var query = {'device_id': {"$in": device_ids}};
             var fields = "cust_id,device_id,obj_name,car_brand_id,car_brand";
-            db.list(db.table_name_def.TAB_VEHICLE, query, fields, "", "", 0, 0, -1, function (vehicles) {
+            db.list(db.table_name_def.TAB_VEHICLE, query, fields, "obj_id", "obj_id", 0, 0, -1, function (vehicles) {
                 var cust_ids = [];
-                for (var i = 0; i < vehicles.length; i++) {
-                    cust_ids.push(vehicles[i].cust_id);
+                for (var i = 0; i < vehicles.data.length; i++) {
+                    cust_ids.push(vehicles.data[i].cust_id);
                 }
                 cust_ids = util.unique(cust_ids);
                 query = {'cust_id': {'$in': cust_ids}};
                 fields = "cust_id,cust_name";
-                db.list(db.table_name_def.TAB_CUSTOMER, query, fields, "", "", 0, 0, -1, function (customers) {
-                    for (var i = 0; i < vehicles.length; i++) {
-                        for (var j = 0; j < customers.length; j++) {
-                            if (vehicles[i].cust_id == customers[j].cust_id) {
-                                vehicles[i].cust_name = customers[j].cust_name;
+                db.list(db.table_name_def.TAB_CUSTOMER, query, fields, "cust_id", "cust_id", 0, 0, -1, function (customers) {
+                    for (var i = 0; i < vehicles.data.length; i++) {
+                        for (var j = 0; j < customers.data.length; j++) {
+                            if (vehicles.data[i].cust_id == customers.data[j].cust_id) {
+                                vehicles.data[i].cust_name = customers.data[j].cust_name;
                             }
                         }
                     }
@@ -860,13 +860,13 @@ exports.list = function(req, res){
                         _devices.data[i].car_brand_id = 0;
                         _devices.data[i].car_brand = "";
                         _devices.data[i].cust_name = "";
-                        for (var j = 0; j < vehicles.length; j++) {
-                            if (_devices.data[i].device_id == vehicles[j].device_id) {
-                                _devices.data[i].obj_id = vehicles[j].obj_id;
-                                _devices.data[i].obj_name = vehicles[j].obj_name;
-                                _devices.data[i].car_brand_id = vehicles[j].car_brand_id;
-                                _devices.data[i].car_brand = vehicles[j].car_brand;
-                                _devices.data[i].cust_name = vehicles[j].cust_name;
+                        for (var j = 0; j < vehicles.data.length; j++) {
+                            if (_devices.data[i].device_id == vehicles.data[j].device_id) {
+                                _devices.data[i].obj_id = vehicles.data[j].obj_id;
+                                _devices.data[i].obj_name = vehicles.data[j].obj_name;
+                                _devices.data[i].car_brand_id = vehicles.data[j].car_brand_id;
+                                _devices.data[i].car_brand = vehicles.data[j].car_brand;
+                                _devices.data[i].cust_name = vehicles.data[j].cust_name;
                                 break;
                             }
                         }

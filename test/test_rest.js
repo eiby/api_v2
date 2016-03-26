@@ -21,13 +21,15 @@
  *      查询参数:
  *          一般格式: key=value
  *          模糊搜索: key=^value, 比如obj_name=^粤B1234
+ *          比较搜索: key=>value, <value, <=value, >=value
+ *          或搜索: key=value1|value2|value3|...|value
  *          时间段: key=begin_time@end_time, 比如create_time=2015-11-01@2015-12-01
  *      fields: 返回字段, 格式为key1,key2,key3, 比如cust_id,cust_name
  *      sorts: 排序字段, 格式为key1,key2,key3, 如果为倒序在字段名称前加-, 比如-key1,key2
  *      page: 分页字段, 一般为数据表的唯一ID
- *      min_id: 本页最小分页ID
- *      max_id: 本页最大分页ID
- *      limit: 返回数量
+ *      min_id: 本页最小分页ID, 0表示不起作用
+ *      max_id: 本页最大分页ID, 0表示不起作用
+ *      limit: 返回数量, -1表示不限制返回数量
  *
  * 访问信令access_token:
  *      除了个别接口, 大部分的接口是需要传入access_token, 开发者需要在登录之后保存access_token,
@@ -69,7 +71,11 @@ var raw = function (args) {
     var string = '';
     for (var k in newArgs) {
         if (k != 'sign') {
-            string += k + newArgs[k];
+            if(typeof(args[k]) == 'object'){
+                string += k + JSON.stringify(newArgs[k]);
+            }else{
+                string += k + newArgs[k];
+            }
         }
     }
     return string;
@@ -79,7 +85,11 @@ var raw = function (args) {
 var raw2 = function (args) {
     var string = '';
     for (var k in args) {
-        string += '&' + k + '=' + args[k];
+        if(typeof(args[k]) == 'object'){
+            string += '&' + k + '=' + encodeURIComponent(JSON.stringify(args[k]));
+        }else{
+            string += '&' + k + '=' + encodeURIComponent(args[k]);
+        }
     }
     string = string.substr(1);
     return string;
@@ -224,9 +234,10 @@ WiStormAPI.prototype.login = function (account, password, callback) {
 //      cust_name: 用户名称
 //      access_token: 全局令牌
 //      valid_time: 有效时间
-WiStormAPI.prototype.sso_login = function (login_id, callback) {
+WiStormAPI.prototype.sso_login = function (login_id, weixin_appsecret, callback) {
     this.sign_obj.method = 'wicare.user.sso_login';
     this.sign_obj.login_id = login_id;
+    this.sign_obj.weixin_appsecret = weixin_appsecret;
     this.sign_obj.sign = this.sign();
     var params = raw2(this.sign_obj);
     var path = define.API_URL + "/router/rest?" + params;
@@ -246,6 +257,37 @@ WiStormAPI.prototype.resetPassword = function (account, password, valid_type, va
     this.sign_obj.password = password;
     this.sign_obj.valid_type = valid_type;
     this.sign_obj.valid_code = valid_code;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取用户列表
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getUserList = function (query_json, fields, sorts, page, min_id, max_id, limit, callback) {
+    this.sign_obj.method = 'wicare.users.list';
+    //this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
     this.sign_obj.sign = this.sign();
     var params = raw2(this.sign_obj);
     var path = define.API_URL + "/router/rest?" + params;
@@ -324,6 +366,29 @@ WiStormAPI.prototype.update = function (query_json, update_json, access_token, c
     });
 };
 
+// 绑定客户
+// 参数:
+//    cust_id: 用户ID
+//    customer表里面的除了cust_id, create_time, update_time之外的所有字段
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.bind = function (query_json, update_json, valid_code, callback) {
+    this.sign_obj.method = 'wicare.user.bind';
+    this.sign_obj.valid_code = valid_code;
+    for (var key in query_json) {
+        this.sign_obj["_" + key] = query_json[key];
+    }
+    for (var key in update_json) {
+        this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 获取客户信息
 // 参数:
 //    cust_id: 用户ID
@@ -386,6 +451,23 @@ WiStormAPI.prototype.sendSMS = function (mobile, type, callback) {
     });
 };
 
+// 获取图片验证码
+// 参数:
+//    mobile: 手机号码或者open_id
+// 返回：
+//    status_code: 状态码
+//    valid_code_img: 图片html
+WiStormAPI.prototype.getPicValidCode = function (mobile, callback) {
+    this.sign_obj.method = 'wicare.util.pic_valid_code.get';
+    this.sign_obj.mobile = mobile;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 验证校验码
 // 参数:
 //    valid_type: 1: 通过手机号  2:通过邮箱
@@ -408,6 +490,25 @@ WiStormAPI.prototype.validCode = function (mobile, email, valid_type, valid_code
     });
 };
 
+// 创建车辆信息
+// 参数:
+//    vehicle表的所有字段
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.createVehicle = function (create_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.vehicle.create';
+    this.sign_obj.access_token = access_token;
+    for (var key in create_json) {
+        this.sign_obj[key] = create_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 更新车辆信息
 // 参数:
 //    business表里面的除了business_id, arrive_time之外的所有字段
@@ -422,6 +523,45 @@ WiStormAPI.prototype.updateVehicle = function (query_json, update_json, access_t
     }
     for (var key in update_json) {
         this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取车辆信息
+// 参数:
+//    obj_id: 车辆ID
+// 返回:
+//    status_code: 状态码
+WiStormAPI.prototype.getVehicle = function (query_json, fields, access_token, callback) {
+    this.sign_obj.method = 'wicare.vehicle.get';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 删除车辆信息
+// 参数:
+//    obj_id: 车辆ID
+// 返回:
+//    status_code: 状态码
+WiStormAPI.prototype.deleteVehicle = function (query_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.vehicle.delete';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
     }
     this.sign_obj.sign = this.sign();
     var params = raw2(this.sign_obj);
@@ -509,6 +649,27 @@ WiStormAPI.prototype.updateDevice = function (query_json, update_json, access_to
     });
 };
 
+// 获取设备信息
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getDevice = function (query_json, fields, access_token, callback) {
+    this.sign_obj.method = 'wicare.device.get';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 获取设备列表
 // 参数:
 //    query_json: 查询json;
@@ -532,6 +693,58 @@ WiStormAPI.prototype.getDeviceList = function (query_json, fields, sorts, page, 
     this.sign_obj.max_id = max_id;
     this.sign_obj.min_id = min_id;
     this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取地理位置信息
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回条数;
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getLocationList = function (query_json, fields, sorts, page, min_id, max_id, limit, callback) {
+    this.sign_obj.method = 'wicare.locations.list';
+    //this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 创建发送设备指令
+// 参数:
+//   device_id: 设备ID;
+//   cmd_type: 指令类型;
+//   params: 对应参数;
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.createCommand = function (device_id, cmd_type, params, access_token, callback) {
+    this.sign_obj.method = 'wicare.command.create';
+    this.sign_obj.access_token = access_token;
+    this.sign_obj.device_id = device_id;
+    this.sign_obj.cmd_type = cmd_type;
+    this.sign_obj.params = JSON.stringify(params);
     this.sign_obj.sign = this.sign();
     var params = raw2(this.sign_obj);
     var path = define.API_URL + "/router/rest?" + params;
@@ -664,6 +877,39 @@ WiStormAPI.prototype.getBusinessTotal = function (seller_id, begin_time, end_tim
 //    微信JSAPI支付参数
 WiStormAPI.prototype.payWeixin = function (cust_id, open_id, order_type, pay_key, product_name, remark, unit_price, quantity, total_price, callback) {
     this.sign_obj.method = 'wicare.pay.weixin';
+    this.sign_obj.cust_id = cust_id;
+    this.sign_obj.open_id = open_id;
+    this.sign_obj.order_type = order_type;
+    this.sign_obj.pay_key = pay_key;
+    this.sign_obj.product_name = product_name;
+    this.sign_obj.remark = remark;
+    this.sign_obj.unit_price = unit_price;
+    this.sign_obj.quantity = quantity;
+    this.sign_obj.total_price = total_price;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 产生订单并通过微信给客户支付红包
+// 参数:
+//    cust_id: 商户Id;
+//    open_id: 微信用户OpenID;
+//    order_type: 订单类型 1:设备 2:服务费 3:红包
+//    pay_key: String,    //付费对象, 如果为终端,则为终端序列号, 如果为SIM卡费,则为sim卡号
+//    product_name: 产品名称;
+//    remark: 产品描述;
+//    unit_price: 单价(分);
+//    quantity: 数量;
+//    total_price: 总价(分);
+// 返回：
+//    微信JSAPI支付参数
+WiStormAPI.prototype.payWeixin2User = function (cust_id, open_id, order_type, pay_key, product_name, remark, unit_price, quantity, total_price, access_token, callback) {
+    this.sign_obj.method = 'wicare.pay.weixin2user';
+    this.sign_obj.access_token = access_token;
     this.sign_obj.cust_id = cust_id;
     this.sign_obj.open_id = open_id;
     this.sign_obj.order_type = order_type;
@@ -1067,6 +1313,28 @@ WiStormAPI.prototype.getDayTripList = function (query_json, fields, sorts, page,
     });
 };
 
+// 日统计数据字段计数加1
+// 参数:
+//    day_trip_id: 记录ID
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.incDayTrip = function (query_json, update_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.day_trip.inc';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj["_" + key] = query_json[key];
+    }
+    for (var key in update_json) {
+        this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 // 获取电压曲线及水温曲线
 // 参数:
 //    query_json: 查询json;
@@ -1098,12 +1366,367 @@ WiStormAPI.prototype.getDeviceObdDataList = function (query_json, fields, sorts,
     });
 };
 
+// 获取设备历史定位数据
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getDeviceGpsDataList = function (query_json, fields, sorts, page, min_id, max_id, limit, access_token, callback) {
+    this.sign_obj.method = 'wicare.gps_datas.list';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取设备历史空气数据
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getDeviceAirDataList = function (query_json, fields, sorts, page, min_id, max_id, limit, access_token, callback) {
+    this.sign_obj.method = 'wicare.air_datas.list';
+    this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 创建崩溃记录
+// 参数:
+//    bug_report: String, //缺陷记录
+//    account: String,    //登陆账号
+// 返回：
+//    status_code: 状态码
+//    id: 新崩溃ID
+WiStormAPI.prototype.createCrash = function (bug_report, account, callback) {
+    this.sign_obj.method = 'wicare.crash.create';
+    this.sign_obj.bug_report = bug_report;
+    this.sign_obj.account = account;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取崩溃记录
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    由fields设定的字段
+WiStormAPI.prototype.getCrashList = function (query_json, fields, sorts, page, min_id, max_id, limit, callback) {
+    this.sign_obj.method = 'wicare.crashes.list';
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取字典表信息
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getDict = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.dict.get';
+    //this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取空气质量AQI
+// 参数:
+//    query_json: 查询json;
+// 返回：
+//    quality: 空气指数AQI
+WiStormAPI.prototype.getAQI = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.base.aqi.get';
+    //this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 微信好友关系更新
+// 参数:
+//    open_id: String,           //用户open_id
+//    name: String,              //用户姓名
+//    friend_open_id: String,    //好友open_id
+//    friend_name: String,       //好友姓名
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.updateWeixinFriend = function (query_json, update_json, callback) {
+    this.sign_obj.method = 'wicare.weixin_friend.update';
+    //this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj["_" + key] = query_json[key];
+    }
+    for (var key in update_json) {
+        this.sign_obj[key] = update_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 创建产品信息
+// 参数:
+//    product表的所有字段
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.createProduct = function (create_json, access_token, callback) {
+    this.sign_obj.method = 'wicare.product.create';
+    this.sign_obj.access_token = access_token;
+    for (var key in create_json) {
+        this.sign_obj[key] = create_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取商品信息
+// 参数:
+//    product_id: 产品id
+//    fields: 需要返回的字段
+// 返回：
+//    返回fields指定的字段
+WiStormAPI.prototype.getProduct = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.product.get';
+    //this.sign_obj.access_token = access_token;
+    //this.sign_obj.cust_id = cust_id;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取商品信息
+// 参数:
+//    product_id: 产品id
+//    fields: 需要返回的字段
+// 返回：
+//    返回fields指定的字段
+WiStormAPI.prototype.getProduct = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.product.get';
+    //this.sign_obj.access_token = access_token;
+    //this.sign_obj.cust_id = cust_id;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 抽奖
+// 参数:
+//    cust_id: 用户id
+//    open_id: 微信id
+//    fields: 需要返回的字段
+// 返回：
+//    返回fields指定的字段
+WiStormAPI.prototype.drawLottery = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.lottery.draw';
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 领奖
+// 参数:
+//    code: 奖品识别码
+//    open_id: 微信id
+//    valid_code: 验证码
+//    fields: 需要返回的字段
+// 返回：
+//    返回fields指定的字段
+WiStormAPI.prototype.receiveLottery = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.lottery.receive';
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取用户奖品列表
+// 参数:
+//    query_json: 查询json;
+//    fields: 返回字段
+//    sorts: 排序字段,如果倒序,在字段前面加-
+//    page: 分页字段
+//    min_id: 分页字段的本页最小值
+//    max_id: 分页字段的本页最小值
+//    limit: 返回数量
+// 返回：
+//    按fields返回数据列表
+WiStormAPI.prototype.getLotteryLogList = function (query_json, fields, sorts, page, min_id, max_id, limit, callback) {
+    this.sign_obj.method = 'wicare.lottery_logs.list';
+    //this.sign_obj.access_token = access_token;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sorts = sorts;
+    this.sign_obj.page = page;
+    this.sign_obj.max_id = max_id;
+    this.sign_obj.min_id = min_id;
+    this.sign_obj.limit = limit;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 创建游戏信息
+// 参数:
+//    game表的所有字段
+// 返回：
+//    status_code: 状态码
+WiStormAPI.prototype.createGame = function (create_json, callback) {
+    this.sign_obj.method = 'wicare.game.create';
+    //this.sign_obj.access_token = access_token;
+    for (var key in create_json) {
+        this.sign_obj[key] = create_json[key];
+    }
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
+// 获取游戏信息
+// 参数:
+//    game_id: 游戏id
+//    fields: 需要返回的字段
+// 返回：
+//    返回fields指定的字段
+WiStormAPI.prototype.getGame = function (query_json, fields, callback) {
+    this.sign_obj.method = 'wicare.game.get';
+    //this.sign_obj.access_token = access_token;
+    //this.sign_obj.cust_id = cust_id;
+    for (var key in query_json) {
+        this.sign_obj[key] = query_json[key];
+    }
+    this.sign_obj.fields = fields;
+    this.sign_obj.sign = this.sign();
+    var params = raw2(this.sign_obj);
+    var path = define.API_URL + "/router/rest?" + params;
+    util._get(path, function (obj) {
+        callback(obj);
+    });
+};
+
 var wistorm_api = new WiStormAPI('9410bc1cbfa8f44ee5f8a331ba8dd3fc', '21fb644e20c93b72773bf0f8d0905052', 'json', '1.0', 'md5');
 
-var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e55da7bb5e";
+var test_access_token = "f1b3afaf9bbedfcb0ca3f0465a1d2e7e157c1ea55ad8d2dbcaa7083d125d360c403fe6c7ed1ace5c25682eb77a070c90";
 
 //商户注册测试, 注册后需要更新成cust_type为2, 并更新cust_name为商户名称
-//wistorm_api.register('13316560478', '', 'e10adc3949ba59abbe56e057f20f883e', 1, "5437", function(obj){
+//wistorm_api.register('13316560479', '', 'e10adc3949ba59abbe56e057f20f883e', 1, "8714", function(obj){
 //    console.log(obj);
 //});
 
@@ -1118,13 +1741,24 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    console.log(obj);
 //});
 
+//绑定用户测试
+//var query_json = {
+//    mobile: "13316560478"
+//};
+//var update_json = {
+//    login_id: "oudYOuLUYbZYhJo2VifQI8OnMxGM"
+//};
+//wistorm_api.bind(query_json, update_json, "5437", function(obj){
+//    console.log(obj);
+//});
+
 //商户登陆密码
 //wistorm_api.login('13316560478', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
 //    console.log(obj);
 //});
 
 //第三方登陆密码
-//wistorm_api.sso_login('oudYOuLUYbZYhJo2VifQI8OnMxGM', function (obj) {
+//wistorm_api.sso_login('oudYOuJGcVtENIOTJCi8924bTqg0', '5b46bd690a3a740011a0065d43badb24', function (obj) {
 //    console.log(obj);
 //});
 
@@ -1139,7 +1773,7 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //});
 
 //新增车主客户测试
-//wistorm_api.create(2, 1, 1, "测试车主10", "1331121212", "粤C12346", "abcde123456", 1, "奥迪", 1, "奥迪", 1000, "奥迪Q3 2014", 1000, 1, 1, "修车", test_access_token, function(obj){
+//wistorm_api.create(2, 178, 1, "eiby", "13316560478", "粤B9548T", "abcde123456", 8, "大众", 1799, "途安", 12659, "2011 款 1.4 TSI自动5座 智臻版", 45000, 1, 1, "修车", test_access_token, function(obj){
 //    console.log(obj);
 //});
 
@@ -1185,21 +1819,33 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //});
 
 //新增业务测试
-//wistorm_api.createBusiness(1, 3, "测试车主", 1, "奥迪", 1000, 2, "保养", test_access_token, function(obj){
+//wistorm_api.createBusiness(178, 177, "eiby", 2964, "粤B9548T", 45000, 2, "保养", test_access_token, function(obj){
 //    console.log(obj);
 //});
 
 //更新业务测试, 比如离店, 注意日期要位yyyy-MM-dd hh:mm:ss更新
-//var leave_time = new Date();
-//leave_time = leave_time.format("yyyy-MM-dd hh:mm:ss");
+//var time = new Date();
+//time = time.format("yyyy-MM-dd hh:mm:ss");
 //var query_json = {
-//    business_id: 33
+//    business_id: 121
 //};
+// 开工
 //var update_json = {
-//    status: 2, //离店, 必须传obj_id, mileage参数
-//    leave_time: leave_time,
-//    obj_id: 1,
-//    mileage: 1234
+//    status: 4,
+//    job_start_time: time
+//};
+// 完工
+//var update_json = {
+//    status: 2, //完工, 必须传obj_id, mileage参数
+//    job_end_time: time,
+//    obj_id: 2964,
+//    mileage: 170
+//};
+// 离店
+//var update_json = {
+//    status: 3,
+//    leave_time: time,
+//    obj_id: 2964
 //};
 //wistorm_api.updateBusiness(query_json, update_json, test_access_token, function(obj){
 //    console.log(obj);
@@ -1229,12 +1875,20 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    evaluate_content: String,   //评价内容
 //    evaluate_time: Date         //评价时间
 
-//var query_json = {
-//    obj_name: "粤123456",
-//    arrive_time: "2015-11-01@2015-12-01"
-//};
+var query_json = {
+    business_id: 24
+    //status: "3",
+    //leave_time: "2016-02-17@2016-02-18"
+};
+// 首页
 //wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
-//    wistorm_api.getBusinessList(query_json, "business_id,cust_id,cust_name,obj_id,obj_name,mileage,business_type,business_content,arrive_time", "arrive_time", "business_id", 0, 0, 10, test_access_token, function (obj) {
+//    wistorm_api.getBusinessList(query_json, "business_id,cust_id,cust_name,obj_id,obj_name,mileage,business_type,business_content,arrive_time,status,leave_time", "-leave_time", "leave_time", 0, 0, 20, test_access_token, function (obj) {
+//        console.log(obj);
+//    });
+//});
+// 第二页
+//wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
+//    wistorm_api.getBusinessList(query_json, "business_id,cust_id,cust_name,obj_id,obj_name,mileage,business_type,business_content,arrive_time,status,leave_time", "-leave_time", "leave_time", "2016-02-17 16:40:12", 0, 20, test_access_token, function (obj) {
 //        console.log(obj);
 //    });
 //});
@@ -1257,6 +1911,54 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 
 //获取车款列表
 //wistorm_api.getType(2522, function(obj){
+//    console.log(obj);
+//});
+
+//创建车辆信息
+//var create_json = {
+//    cust_id: 178,                    //用户id
+//    obj_name: "粤B84550",            //车牌号
+//    device_id: 0,               //终端id：0 表示没有绑定终端
+//    car_brand_id: 0,            //品牌id
+//    car_brand: "",               //车辆品牌
+//    car_series_id: 0,           //车型id
+//    car_series: "",                  //车型
+//    car_type_id: 0,                  //车款id
+//    car_type: "",                    //车款
+//    insurance_company: "",           //保险公司
+//    insurance_tel: "",             //保险公司电话
+//    insurance_date: "",            //保险到期时间
+//    insurance_no: "",              //保险单号
+//    maintain_company: "",          //保养4S店
+//    maintain_tel: "",              //保养4S店电话
+//    mileage: 1234,                 //当前里程，需要动态更新
+//    maintain_last_mileage: 1234,   //最后保养里程
+//    gas_no: "93#"                   //汽油标号 0#, 90#, 93#(92#), 97#(95#)
+//};
+//wistorm_api.createVehicle(create_json, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+// 更新车辆信息
+//var query_json = {
+//    obj_id: 126
+//};
+//var update_json = {
+//    obj_name: "更新测试"
+//};
+//wistorm_api.updateVehicle(query_json, update_json, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+// 删除车辆信息
+//var query_json = {obj_id: 125};
+//wistorm_api.deleteVehicle(query_json, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+// 获取车辆信息
+//var query_json = {obj_id: 123};
+//wistorm_api.getVehicle(query_json, "obj_id,obj_name", test_access_token, function (obj) {
 //    console.log(obj);
 //});
 
@@ -1295,10 +1997,10 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    evaluate_count: Number,          //评价次数
 
 //var query_json = {
-//    seller_id: 1
+//    seller_id: 54
 //};
 //wistorm_api.getToken('13316891158', 'e10adc3949ba59abbe56e057f20f883e', function (obj) {
-//    wistorm_api.getVehicleList(query_json, "cust_id,cust_name,obj_id,obj_name,mileage,maintain_last_mileage", "obj_id", "obj_id",
+//    wistorm_api.getVehicleList(query_json, "cust_id,cust_name,obj_id,obj_name,mileage,maintain_last_mileage,last_arrive_time", "obj_id", "obj_id",
 //        0, 0, 10, obj.access_token, function (obj) {
 //        console.log(obj);
 //    });
@@ -1363,6 +2065,31 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    });
 //});
 
+//获取设备信息
+//    obj_id: Number,                  //车辆id
+//    obj_name: String,                //车牌号
+//    cust_id: Number,                 //用户id
+//    cust_name:String,                //用户名称
+//    device_id: Number,               //终端id：0 表示没有绑定终端
+//    car_brand_id: Number,            //品牌id
+//    car_brand: String,               //车辆品牌
+//    serial: String,                  //终端序列号
+//    sim: String,                     //终端内置sim卡
+//    status: Number,                  //0：未出库 1：已出库 2: 确认收货 3：已激活
+//    hardware_version: String,        //硬件版本号
+//    software_version: String,        //软件版本号
+//    active_time: Date,               //激活时间
+//    end_time: Date,                  //到期时间
+
+ //获取设备信息
+//var query_json = {
+//    device_id: 1613
+//};
+//wistorm_api.getDevice(query_json, "active_gps_data.air",
+//    test_access_token, function (obj) {
+//        console.log(obj);
+//});
+
 //获取设备列表
 //    obj_id: Number,                  //车辆id
 //    obj_name: String,                //车牌号
@@ -1395,7 +2122,6 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //            console.log(obj);
 //        });
 //});
-
 
 // 微信支付接口
 // 产生订单并获取微信支付参数
@@ -1490,7 +2216,7 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 
 //更新提醒, 比如已推送, 注意日期要位yyyy-MM-dd hh:mm:ss更新
 //var query_json = {
-//    option_id: 6
+//    option_id: 67
 //};
 //var update_json = {
 //    mileage: 7500
@@ -1501,8 +2227,7 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 
 //获取提醒列表
 //var query_json = {
-//    seller_id: 1,
-//    option_type: 1
+//    seller_id: 1
 //};
 //wistorm_api.getExceptionOptionList(query_json, "option_id,option_type,cust_id,seller_id,mileage,duration,object",
 //    "option_id", "option_id", 0, 0, 10, test_access_token, function (obj) {
@@ -1547,14 +2272,14 @@ var test_access_token = "7b4681aa7c28761244fa023eb34668d5d92db6db8699cceb0fc328e
 //    lon: Number,                   //发送位置经度
 //    lat: Number,                   //发送位置纬度
 //    address: String,               //发送位置地址
-var query_json = {
-    user_id: 19,
-    friend_id: 1
-};
-wistorm_api.getChatList(query_json, "user_id,friend_id,sender_id,receiver_id,type,url,content,voice_len,lon,lat,address,create_time,read_time",
-    "chat_id", "chat_id", 0, 0, 10, test_access_token, function (obj) {
-        console.log(obj);
-    });
+//var query_json = {
+//    user_id: 19,
+//    friend_id: 1
+//};
+//wistorm_api.getChatList(query_json, "user_id,friend_id,sender_id,receiver_id,type,url,content,voice_len,lon,lat,address,create_time,read_time",
+//    "chat_id", "chat_id", 0, 0, 10, test_access_token, function (obj) {
+//        console.log(obj);
+//    });
 
 //获取好友关系记录
 //    relat_id: Number,              //关系id
@@ -1593,11 +2318,20 @@ wistorm_api.getChatList(query_json, "user_id,friend_id,sender_id,receiver_id,typ
 //    drive_advice: String,                  //驾驶建议
 //    avg_fuel: Number,                      //百公里油耗
 //    total_fee: Number,                     //每日花费
+//    avg_air: Number                        //平均空气指数
 //var query_json = {
-//    serial: "56621647610",
-//    rcv_day: "2015-12-01@2015-12-31"
+//    serial: "56622821412",
+//    rcv_day: "2016-01-30@2016-01-31"
 //};
 //wistorm_api.getDayTripList(query_json, "rcv_day,total_distance,avg_fuel", "day_trip_id", "day_trip_id", 0, 0, -1, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+//var query_json = {
+//    rcv_day: "2016-01-25",
+//    avg_air: ">0",
+//    cust_id: ">0"
+//};
+//wistorm_api.getDayTripList(query_json, "avg_air", "avg_air", "avg_air", 0, 0, 20, test_access_token, function (obj) {
 //    console.log(obj);
 //});
 
@@ -1622,12 +2356,229 @@ wistorm_api.getChatList(query_json, "user_id,friend_id,sender_id,receiver_id,typ
     //   dhtqj: 30     //点火角提前 °
 //   }
 //var query_json = {
-//    serial: "56621647610",
-//    rcv_time: "2015-12-01@2015-12-31"
+//    serial: "56622821412",
+//    rcv_time: "2016-01-27@2016-01-31"
 //};
 //wistorm_api.getDeviceObdDataList(query_json, "rcv_time,obd_data.dpdy,obd_data.sw", "obd_data_id", "obd_data_id", 0, 0, -1, test_access_token, function (obj) {
 //    console.log(obj);
 //});
+
+//新增崩溃记录
+//wistorm_api.createCrash("错误报告", "13316891158", function(obj){
+//    console.log(obj);
+//});
+
+//获取崩溃记录
+//var query_json = {
+//};
+//wistorm_api.getCrashList(query_json, "crash_id,app_key,bug_report,account,create_time",
+//    "crash_id", "crash_id", 0, 0, -1, function (obj) {
+//    console.log(obj);
+//});
+
+// 创建发送设备指令
+// 参数:
+//   device_id: 设备ID;
+//   cmd_type: 指令类型;
+//   params: 对应参数;
+// 返回：
+//    status_code: 状态码
+//wistorm_api.createCommand(1613, define.COMMAND_SWITCH, {switch: 1}, test_access_token, function(obj){
+//    console.log(obj);
+//});
+
+//点赞
+//var query_json = {
+//    day_trip_id: 1
+//};
+//var update_json = {
+//    air_praise: 1
+//};
+//wistorm_api.incDayTrip(query_json, update_json, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+//获取分时空气曲线
+//var query_json = {
+//    serial: "56622821412",
+//    rcv_time: "2016-01-28@2016-01-29",
+//    air: ">0"
+//};
+//wistorm_api.getDeviceGpsDataList(query_json, "rcv_time,air", "gps_data_id", "gps_data_id", 0, 0, -1, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+//获取分时空气曲线
+//var query_json = {
+//    serial: "56622821412",
+//    rcv_time: "2016-01-30@2016-01-31",
+//    air: ">0"
+//};
+//wistorm_api.getDeviceAirDataList(query_json, "rcv_time,air", "rcv_time", "_id", 0, 0, -1, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+// 获取用户列表
+//var query_json = {
+//    cust_type: 2,
+//    mobile: "^133168"
+//};
+//wistorm_api.getUserList(query_json, "cust_id,cust_name,cust_type,mobile", "cust_id", "cust_id", 0, 0, -1, function (obj) {
+//    console.log(obj);
+//});
+
+// 平台到微信支付接口
+// 产生订单并获取微信支付参数
+// 参数:
+//    cust_id: 商户Id;
+//    open_id: 微信用户OpenID;
+//    order_type: 订单类型 1:设备 2:服务费
+//    pay_key: 付费对象, 如果为终端,则为终端序列号, 如果为SIM卡费,则为sim卡号
+//    product_name: 产品名称;
+//    remark: 产品描述;
+//    unit_price: 单价;
+//    quantity: 数量;
+//    total_price: 总价;
+// 返回：
+//    微信JSAPI支付参数
+//wistorm_api.payWeixin2User(1, "oudYOuPNivMVcHiE5YlC1JtsVq4E", 1, "红包", "红包", "红包", 100, 1, 100 , test_access_token, function(obj){
+//   console.log(obj);
+//});
+
+//获取空气阀值定义数据
+//var query_json = {
+//    dict_type: 'air_limit'
+//};
+//wistorm_api.getDict(query_json, "dict_value", function (obj) {
+//  console.log(obj);
+//});
+
+//获取图片验证码
+//wistorm_api.getPicValidCode("13316560478", function(obj){
+//    console.log(obj);
+//});
+
+//微信好友关系更新
+//var query_json = {
+//    open_id: "open_id",
+//    name: "name",
+//    friend_open_id: "friend_open_id",
+//    friend_name: "friend_name"
+//};
+//var update_json = {
+//    click_count: 1  //如果不需要点击数增加, 可以设置为0
+//};
+//wistorm_api.updateWeixinFriend(query_json, update_json, function (obj) {
+//    console.log(obj);
+//});
+
+// 获取位置列表
+//var query_json = {
+//    type: 4,
+//    city: "北京",
+//    lon: 116.652255,
+//    lat: 40.322868
+//};
+//wistorm_api.getLocationList(query_json, "name,address,tel,lon,lat,distance",
+//    "-create_time", "create_time", 0, 0, 10, function (obj) {
+//        console.log(obj);
+//    });
+
+//创建产品信息
+var create_json = {
+    product_type: 1,                     //商品类别
+    status: 0,                           //0: 上架  1: 下架
+    product_name: 'WiCARE汽车环保卫士',    //商品名称
+    photo: [
+        'http://img2.bibibaba.cn/photo/air/IMG_2515.jpg@!wicare',
+        'http://img2.bibibaba.cn/photo/air/IMG_2524.jpg@!wicare',
+        'http://img2.bibibaba.cn/photo/air/IMG_2527.jpg@!wicare',
+        'http://img2.bibibaba.cn/photo/air/IMG_2477.jpg@!wicare',
+        'http://img2.bibibaba.cn/photo/air/IMG_3607.jpg@!wicare',
+        'http://img2.bibibaba.cn/photo/air/IMG_3621.jpg@!wicare'
+    ],
+    sku_info: [
+        {
+            color: '金色',
+            model: '',
+            price: 668,
+            stock: 100
+        },
+        {
+            color: '黑色',
+            model: '',
+            price: 668,
+            stock: 100
+        }
+    ],
+    unit_price: 668,             //标准商品单价
+    stock: 200,                  //库存数量
+    remark: 'WiCARE汽车环保卫士',  //商品简介
+    url: ''                      //商品页面链接
+};
+//wistorm_api.createProduct(create_json, test_access_token, function (obj) {
+//    console.log(obj);
+//});
+
+// 获取商品信息
+//var query_json = {product_id: 7};
+//wistorm_api.getProduct(query_json, "product_type,status,product_name,photo,sku_info,unit_price,stock,remark,url", function (obj) {
+//    console.log(obj);
+//});
+
+// 抽奖
+//var query_json = {cust_id: 177, open_id: "test"};
+//wistorm_api.drawLottery(query_json, "", function (obj) {
+//    console.log(obj);
+//});
+
+//获取图片验证码
+//var code = "B602437DCB";
+//wistorm_api.getPicValidCode(code, function(obj){
+//    console.log(obj);
+//});
+
+// 领奖
+//var query_json = {open_id: "test", code: "B602437DCB", valid_code: 12};
+//wistorm_api.receiveLottery(query_json, "", function (obj) {
+//    console.log(obj);
+//});
+
+// 获取用户奖品列表
+//var query_json = {
+//    open_id: "oPdAcs8Hz7VTtKQAYks8qVpI6K40",
+//    is_receive: 0
+//};
+//wistorm_api.getLotteryLogList(query_json, "code,lottery_id", "", "", 0, 0, -1, function (obj) {
+//    console.log(obj);
+//});
+
+//获取空气阀值定义数据
+//var query_json = {
+//    city: '深圳'
+//};
+//wistorm_api.getAQI(query_json, "", function (obj) {
+//  console.log(obj);
+//});
+
+//创建游戏信息
+//var create_json = {
+//    type: 1,             //拼图
+//    open_id: "test",     //创建人微信id, 系统创建为空
+//    material_url: "http://img2.bibibaba.cn/photo/1.png",   //素材地址
+//    answer: [1,2,3]      //正确答案
+//};
+//wistorm_api.createGame(create_json, function (obj) {
+//    console.log(obj);
+//});
+
+// 获取商品信息
+var query_json = {game_id: '422108DC77'};
+wistorm_api.getGame(query_json, "type,open_id,material_url,answer", function (obj) {
+    console.log(obj);
+});
+
+
 
 
 

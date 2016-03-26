@@ -172,54 +172,120 @@ exports.doAlipayService = function (req, res) {
 // 2. 获取支付参数,发回给JS
 exports.doWeixinPay = function (req, res) {
     //cust_id, order_type, product_name, remark, unit_price, quantity, total_price,
-    var cust_id = parseInt(req.query.cust_id);
+    //var cust_id = parseInt(req.query.cust_id);
     var open_id = req.query.open_id;
-    var order_type = parseInt(req.query.order_type);
-    var pay_key = req.query.pay_key;
+    //var order_type = parseInt(req.query.order_type);
+    //var pay_key = req.query.pay_key;
     var product_name = req.query.product_name;
     var remark = req.query.remark;
-    var unit_price = parseFloat(req.query.unit_price);
-    var quantity = parseInt(req.query.quantity);
+    //var unit_price = parseFloat(req.query.unit_price);
+    //var quantity = parseInt(req.query.quantity);
     var total_price = parseFloat(req.query.total_price);
+    var create_json = util.getCreateJson(req.query, "");
 
-    db.addOrder(cust_id, order_type, product_name, remark, unit_price, quantity, total_price, pay_key, 0, function (err, order_id) {
-        if (err) {
-            var result = {
-                "status_code": define.API_STATUS_DATABASE_ERROR,  //0 成功 >0 失败
-                "err_msg": "add order failed."
-            };
-            res.send(result);
-        } else {
-            var wxpay = WXPay({
-                appid: 'wxa5c196f7ec4b5df9',
-                mch_id: '1285609701',
-                partner_key: '9410bc1cbfa8f44ee5f8a331ba8dd3fc', //微信商户平台API密钥
-                pfx: fs.readFileSync('./apiclient_cert.p12')       //微信商户平台证书
-            });
+    //db.addOrder(cust_id, order_type, product_name, remark, unit_price, quantity, total_price, pay_key, 0, function (err, order_id) {
+    db.getID(db.table_name_def.TAB_ORDER, function(order_id) {
+        var now = new Date();
+        var oid = now.getFullYear().toString() + util.pad(now.getMonth() + 1, 2) + util.pad(now.getDate(), 2) + util.pad(order_id, 8) + util.pad(Math.floor(Math.random() * 10000), 6);
+        create_json.order_id = oid;
+        create_json.status = 0;
+        db.create2(db.table_name_def.TAB_ORDER, create_json, false, null, null, false, null, null, function (status) {
+            if (status == define.DB_STATUS_OK) {
+                var wxpay = WXPay({
+                    appid: 'wxa5c196f7ec4b5df9',
+                    mch_id: '1285609701',
+                    partner_key: '9410bc1cbfa8f44ee5f8a331ba8dd3fc', //微信商户平台API密钥
+                    pfx: fs.readFileSync('./apiclient_cert.p12')       //微信商户平台证书
+                });
 
-            wxpay.getBrandWCPayRequestParams({
-                openid: open_id,
-                body: product_name,
-                detail: remark,
-                out_trade_no: order_id,
-                total_fee: total_price * 100,
-                spbill_create_ip: '192.168.2.210',
-                notify_url: notifyUrl
-            }, function (err, param) {
-                // in express
+                wxpay.getBrandWCPayRequestParams({
+                    openid: open_id,
+                    body: product_name,
+                    detail: remark,
+                    out_trade_no: oid,
+                    total_fee: total_price * 100,
+                    spbill_create_ip: '192.168.2.210',
+                    notify_url: notifyUrl
+                }, function (err, param) {
+                    // in express
+                    var result = {
+                        "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
+                        "pay_args": param,
+                        "order_id": oid
+                    };
+                    res.send(result);
+                });
+            } else {
                 var result = {
-                    "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
-                    "pay_args": param
+                    "status_code": define.API_STATUS_DATABASE_ERROR,  //0 成功 >0 失败
+                    "err_msg": "add order failed."
                 };
                 res.send(result);
-            });
-        }
+            }
+        });
     });
 };
 
 var buildXML = function(json){
     var builder = new xml2js.Builder();
     return builder.buildObject(json);
+};
+
+// 企业微信支付逻辑
+// 1. 首先产生订单
+// 2. 调用微信企业支付
+exports.doWeixinPay2User = function (req, res) {
+    //cust_id, order_type, product_name, remark, unit_price, quantity, total_price,
+    //var cust_id = parseInt(req.query.cust_id);
+    var open_id = req.query.open_id;
+    //var order_type = parseInt(req.query.order_type);
+    //var pay_key = req.query.pay_key;
+    var product_name = req.query.product_name;
+    var remark = req.query.remark;
+    //var unit_price = parseFloat(req.query.unit_price);
+    //var quantity = parseInt(req.query.quantity);
+    var total_price = parseFloat(req.query.total_price);
+    var create_json = util.getCreateJson(req.query, "");
+
+    //db.addOrder(cust_id, order_type, product_name, remark, unit_price, quantity, total_price, pay_key, 0, function (err, order_id) {
+    db.getID(db.table_name_def.TAB_ORDER, function(order_id) {
+        var now = new Date();
+        var oid = now.getFullYear().toString() + util.pad(now.getMonth() + 1, 2) + util.pad(now.getDate(), 2) + util.pad(order_id, 8) + util.pad(Math.floor(Math.random() * 10000), 6);
+        create_json.order_id = oid;
+        create_json.status = 0;
+        db.create2(db.table_name_def.TAB_ORDER, create_json, false, null, null, false, null, null, function (status) {
+            if (status == define.DB_STATUS_OK) {
+                var wxpay = WXPay({
+                    appid: 'wxa5c196f7ec4b5df9',
+                    mch_id: '1285609701',
+                    partner_key: '9410bc1cbfa8f44ee5f8a331ba8dd3fc', //微信商户平台API密钥
+                    pfx: fs.readFileSync('./apiclient_cert.p12')       //微信商户平台证书
+                });
+
+                wxpay.mmPayMktTransfers({
+                    openid: open_id,
+                    desc: product_name,
+                    partner_trade_no: oid,
+                    amount: total_price,
+                    check_name: 'NO_CHECK',
+                    spbill_create_ip: '192.168.2.210'
+                }, function (err, data) {
+                    // in express
+                    var result = {
+                        "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
+                        "result_data": data
+                    };
+                    res.send(result);
+                });
+            } else {
+                var result = {
+                    "status_code": define.API_STATUS_DATABASE_ERROR,  //0 成功 >0 失败
+                    "err_msg": "add order failed."
+                };
+                res.send(result);
+            }
+        });
+    });
 };
 
 // 微信支付通知
@@ -241,15 +307,31 @@ exports.doWeixinPayNotify = function (req, res) {
             var transaction_id = json.transaction_id;
             if (return_code == "SUCCESS"){
                 // res.success() 向微信返回处理成功信息，res.fail()返回失败信息。
-                db.updateOrder(out_trade_no, transaction_id, 1, function (row) {
+                var query_json = {'order_id': out_trade_no, status: define.ORDER_STATUS_WAIT};
+                var update_json = {
+                    "alipay_order_no": transaction_id,
+                    "status": define.ORDER_STATUS_PAYED
+                };
+                //db.updateOrder(out_trade_no, transaction_id, 1, function (row) {
+                db.findAndUpdate(db.table_name_def.TAB_ORDER, query_json, update_json, function(status, order){
                     res.success = function () {
                         res.end(buildXML({xml: {return_code: 'SUCCESS'}}));
                     };
                     res.fail = function () {
                         res.end(buildXML({xml: {return_code: 'FAIL'}}));
                     };
-                    if (row > 0) {
-                        res.success();
+                    if (order) {
+                        var active_time = new Date();
+                        query_json = {"serial": order.pay_key};
+                        update_json = {"status": 3, "active_time": active_time};
+                        // 更新终端状态
+                        db.update(db.table_name_def.TAB_DEVICE, query_json, update_json, function(status){
+                            if(status == define.DB_STATUS_OK){
+                                res.success();
+                            }else{
+                                res.fail();
+                            }
+                        });
                     } else {
                         res.fail();
                     }

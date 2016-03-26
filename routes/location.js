@@ -94,144 +94,201 @@ var locations = {};
 locations["1"] = "东莞,中山,云浮,佛山,广州,惠州,揭阳,梅州,汕头,汕尾,江门,河源,深圳,清远,湛江,潮州,珠海,肇庆,茂名,阳江,韶关";  //车辆年检
 locations["2"] = "东莞,中山,云浮,佛山,广州,惠州,揭阳,梅州,汕头,汕尾,江门,河源,深圳,清远,湛江,潮州,珠海,肇庆,茂名,阳江,韶关,北京,上海,天津,重庆";  //驾驶证年审换证
 locations["3"] = "";  //违章处理地点
+locations["4"] = "";  //充电站
 
 exports.list = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid){
-        if(valid){
-            var type = parseInt(req.query.type);
-            var city = req.query.city;
-            var lon = req.query.lon;
-            if(typeof lon == "undefined"){
-                lon = 0;
-            }else{
-                lon = parseFloat(lon);
+    //var auth_code = req.query.auth_code;
+    //db.ifAuthCodeValid(auth_code, function(valid){
+    //    if(valid){
+    //        var type = parseInt(req.query.type);
+    //        var city = req.query.city;
+    //        var lon = req.query.lon;
+    //        if(typeof lon == "undefined"){
+    //            lon = 0;
+    //        }else{
+    //            lon = parseFloat(lon);
+    //        }
+    //        var lat = req.query.lat;
+    //        if(typeof lat == "undefined"){
+    //            lat = 0;
+    //        }else{
+    //            lat = parseFloat(lat);
+    //        }
+    //        var cust_id = req.query.cust_id;
+    //        if(typeof cust_id == "undefined"){
+    //            cust_id = 0;
+    //        }else{
+    //            cust_id = parseInt(cust_id);
+    //        }
+    //        var page_no = req.query.page_no;
+    //        if(typeof page_no == "undefined"){
+    //            page_no = 0;
+    //        }else{
+    //            page_no = parseInt(page_no) - 1;
+    //        }
+    //        var page_count = req.query.page_count;
+    //        if(typeof page_count == "undefined"){
+    //            page_count = 10;
+    //        }else{
+    //            page_count = parseInt(page_count);
+    //        }
+    //        var cust_id = req.query.cust_id;
+    //        if(typeof cust_id == "undefined"){
+    //            cust_id = 0;
+    //        }else{
+    //            cust_id = parseInt(cust_id);
+    //        }
+    //        var query = "";
+    //        switch (type){
+    //            case 1:
+    //                query = "汽车检测站";
+    //                break;
+    //            case 2:
+    //                if(city == "北京"){
+    //                    query = "车辆管理站";
+    //                }else{
+    //                    query = "车管所";
+    //                }
+    //                break;
+    //            case 3:
+    //                if(city == "北京"){
+    //                    query = "执法站";
+    //                }else{
+    //                    query = "交警大队";
+    //                }
+    //                break;
+    //        }
+    //        if(locations[req.query.type].indexOf(city) > -1){
+    //            db.getLocationList(type, city, lon, lat, 100, function (docs) {
+    //                var names = "";
+    //                for (var i = 0; i < docs.length; i++) {
+    //                    names = names + docs[i].name + ","
+    //                }
+    //                names = names.substr(0, names.length - 1);
+    //                db.favoriteIsCollect(cust_id, names, function (favorites) {
+    //                    for (var i = 0; i < docs.length; i++) {
+    //                        docs[i].is_collect = 0;
+    //                        for (var j = 0; j < favorites.length; j++) {
+    //                            if (docs[i].name == favorites[j].name) {
+    //                                docs[i].is_collect = 1;
+    //                                break;
+    //                            }
+    //                        }
+    //                    }
+    //                    res.send(docs);
+    //                });
+    //            });
+    //        }else{
+    //            _getLocationList(query, lon, lat, 10000, city, 0, 100, function(docs){
+    //                var names = "";
+    //                for(var i = 0; i < docs.results.length; i++){
+    //                    names = names + docs.results[i].name + ","
+    //                }
+    //                names = names.substr(0, names.length - 1);
+    //                db.favoriteIsCollect(cust_id, names, function(favorites){
+    //                    for(var i = 0; i < docs.results.length; i++){
+    //                        docs.results[i].is_collect = 0;
+    //                        for(var j = 0; j < favorites.length; j++){
+    //                            if(docs.results[i].name == favorites[j].name){
+    //                                docs.results[i].is_collect = 1;
+    //                                break;
+    //                            }
+    //                        }
+    //                    }
+    //                    var locs = [];
+    //                    var loc = {};
+    //                    for (var i = 0; i < docs.results.length; i++) {
+    //                        if(docs.results[i].telephone == undefined){
+    //                            tel = "";
+    //                        }else{
+    //                            tel = docs.results[i].telephone;
+    //                        }
+    //                        if(docs.results[i].detail_info == undefined){
+    //                            loc = {
+    //                                name: docs.results[i].name,
+    //                                address: docs.results[i].address,
+    //                                tel: tel,
+    //                                lon: docs.results[i].location.lng,
+    //                                lat: docs.results[i].location.lat,
+    //                                is_collect: docs.results[i].is_collect
+    //                            };
+    //                        }else{
+    //                            loc = {
+    //                                name: docs.results[i].name,
+    //                                address: docs.results[i].address,
+    //                                tel: tel,
+    //                                lon: docs.results[i].location.lng,
+    //                                lat: docs.results[i].location.lat,
+    //                                distance: docs.results[i].detail_info.distance,
+    //                                is_collect: docs.results[i].is_collect
+    //                            };
+    //                        }
+    //                        locs.push(loc);
+    //                    }
+    //                    res.send(locs);
+    //                });
+    //            });
+    //        }
+    //    }else{
+    //        util.resSendNoRight(res);
+    //    }
+    //});
+    var type = parseInt(req.query.type);
+    var city = req.query.city;
+    var lon = req.query.lon;
+    if (lon == undefined) {
+        lon = 0;
+    } else {
+        lon = parseFloat(lon);
+    }
+    var lat = req.query.lat;
+    if (lat == undefined) {
+        lat = 0;
+    } else {
+        lat = parseFloat(lat);
+    }
+    var query = {"type": type, "city": city};
+    var fields = req.query.fields;
+    var sorts = req.query.sorts;
+    var page = req.query.page;
+    var limit = parseInt(req.query.limit);
+
+    if (lon == 0 && lat == 0) {
+        db.list(db.table_name_def.TAB_LOCATION, query, fields, sorts, page, 0, 0, limit, function(docs){
+            res.send(docs);
+        });
+    } else {
+        var command = {
+            geoNear: "locations",
+            query: {"type": type, "city": city},
+            near: {
+                type: "Point",
+                coordinates: [lon, lat]
+            },
+            spherical: true,
+            maxDistance: 10 * 1000,
+            //distanceMultiplier: 6371,
+            limit: limit
+        };
+        db.executeCommand(command, function(docs){
+            var locs = [];
+            var loc = {};
+            for (var i = 0; i < docs.documents[0].results.length; i++) {
+                //loc = docs.documents[0].results[i].obj;
+                //loc.distance = docs.documents[0].results[i].dis;
+                loc = {
+                    name: docs.documents[0].results[i].obj.name,
+                    address: docs.documents[0].results[i].obj.address,
+                    tel: docs.documents[0].results[i].obj.tel,
+                    lon: docs.documents[0].results[i].obj.loc.coordinates[0],
+                    lat: docs.documents[0].results[i].obj.loc.coordinates[1],
+                    distance: docs.documents[0].results[i].dis
+                };
+                locs.push(loc);
             }
-            var lat = req.query.lat;
-            if(typeof lat == "undefined"){
-                lat = 0;
-            }else{
-                lat = parseFloat(lat);
-            }
-            var cust_id = req.query.cust_id;
-            if(typeof cust_id == "undefined"){
-                cust_id = 0;
-            }else{
-                cust_id = parseInt(cust_id);
-            }
-            var page_no = req.query.page_no;
-            if(typeof page_no == "undefined"){
-                page_no = 0;
-            }else{
-                page_no = parseInt(page_no) - 1;
-            }
-            var page_count = req.query.page_count;
-            if(typeof page_count == "undefined"){
-                page_count = 10;
-            }else{
-                page_count = parseInt(page_count);
-            }
-            var cust_id = req.query.cust_id;
-            if(typeof cust_id == "undefined"){
-                cust_id = 0;
-            }else{
-                cust_id = parseInt(cust_id);
-            }
-            var query = "";
-            switch (type){
-                case 1:
-                    query = "汽车检测站";
-                    break;
-                case 2:
-                    if(city == "北京"){
-                        query = "车辆管理站";
-                    }else{
-                        query = "车管所";
-                    }
-                    break;
-                case 3:
-                    if(city == "北京"){
-                        query = "执法站";
-                    }else{
-                        query = "交警大队";
-                    }
-                    break;
-            }
-            if(locations[req.query.type].indexOf(city) > -1){
-                db.getLocationList(type, city, lon, lat, 100, function (docs) {
-                    var names = "";
-                    for (var i = 0; i < docs.length; i++) {
-                        names = names + docs[i].name + ","
-                    }
-                    names = names.substr(0, names.length - 1);
-                    db.favoriteIsCollect(cust_id, names, function (favorites) {
-                        for (var i = 0; i < docs.length; i++) {
-                            docs[i].is_collect = 0;
-                            for (var j = 0; j < favorites.length; j++) {
-                                if (docs[i].name == favorites[j].name) {
-                                    docs[i].is_collect = 1;
-                                    break;
-                                }
-                            }
-                        }
-                        res.send(docs);
-                    });
-                });
-            }else{
-                _getLocationList(query, lon, lat, 10000, city, 0, 100, function(docs){
-                    var names = "";
-                    for(var i = 0; i < docs.results.length; i++){
-                        names = names + docs.results[i].name + ","
-                    }
-                    names = names.substr(0, names.length - 1);
-                    db.favoriteIsCollect(cust_id, names, function(favorites){
-                        for(var i = 0; i < docs.results.length; i++){
-                            docs.results[i].is_collect = 0;
-                            for(var j = 0; j < favorites.length; j++){
-                                if(docs.results[i].name == favorites[j].name){
-                                    docs.results[i].is_collect = 1;
-                                    break;
-                                }
-                            }
-                        }
-                        var locs = [];
-                        var loc = {};
-                        for (var i = 0; i < docs.results.length; i++) {
-                            if(docs.results[i].telephone == undefined){
-                                tel = "";
-                            }else{
-                                tel = docs.results[i].telephone;
-                            }
-                            if(docs.results[i].detail_info == undefined){
-                                loc = {
-                                    name: docs.results[i].name,
-                                    address: docs.results[i].address,
-                                    tel: tel,
-                                    lon: docs.results[i].location.lng,
-                                    lat: docs.results[i].location.lat,
-                                    is_collect: docs.results[i].is_collect
-                                };
-                            }else{
-                                loc = {
-                                    name: docs.results[i].name,
-                                    address: docs.results[i].address,
-                                    tel: tel,
-                                    lon: docs.results[i].location.lng,
-                                    lat: docs.results[i].location.lat,
-                                    distance: docs.results[i].detail_info.distance,
-                                    is_collect: docs.results[i].is_collect
-                                };
-                            }
-                            locs.push(loc);
-                        }
-                        res.send(locs);
-                    });
-                });
-            }
-        }else{
-            util.resSendNoRight(res);
-        }
-    });
+            res.send(locs);
+        });
+    }
 };
 
 //http://api.map.baidu.com/place/v2/search?&query=%E4%BA%A4%E8%AD%A6%E5%A4%A7%E9%98%9F&location=22.580635,113.963417&radius=10000&output=json&ak=647127add68dd0a3ed1051fd68e78900&page_size=10&page_num=0&scope=2&filter=industry_type:life|sort_name:distance|sort_rule:1

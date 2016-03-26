@@ -12,78 +12,95 @@ var revise = require("../lib/revise.js");
 var http = require("http");
 
 exports.info = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid){
-        if(valid){
-            var obj_id = req.params.obj_id;
-            db.getVehicleById(obj_id, function(vehicle){
-                if(vehicle){
-                    db.getCustomer(vehicle.cust_id, function(customer){
-                        if(customer){
-                            vehicle.cust_name = customer.cust_name;
-                        }
-                        res.send(vehicle);
-                    })
-                }else{
-                    res.send(null);
+    //var auth_code = req.query.auth_code;
+    //db.ifAuthCodeValid(auth_code, function(valid){
+    //    if(valid){
+
+    var obj_id = req.query.obj_id;
+    var query_json = {"obj_id": obj_id};
+    db.get(db.table_name_def.TAB_VEHICLE, query_json, "", function(vehicle){
+    //db.getVehicleById(obj_id, function (vehicle) {
+        if (vehicle) {
+            var query_json = {"cust_id": vehicle.cust_id};
+            db.get(db.table_name_def.TAB_CUSTOMER, "cust_name", function(customer){
+            //db.getCustomer(vehicle.cust_id, function (customer) {
+                if (customer) {
+                    vehicle.cust_name = customer.cust_name;
                 }
-            });
-        }else{
-            util.resSendNoRight(res);
+                res.send(vehicle);
+            })
+        } else {
+            res.send(null);
         }
     });
+    //    }else{
+    //        util.resSendNoRight(res);
+    //    }
+    //});
 };
 
 exports.new = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid){
-        if(valid){
-            var cust_id = req.body.cust_id;
-            var obj_name = decodeURIComponent(req.body.obj_name);
-            var car_brand = decodeURIComponent(req.body.car_brand);
-            var car_series = decodeURIComponent(req.body.car_series);
-            var car_type = decodeURIComponent(req.body.car_type);
-            var car_brand_id = parseInt(req.body.car_brand_id);
-            var car_series_id = parseInt(req.body.car_series_id);
-            var car_type_id = parseInt(req.body.car_type_id);
-            var vio_city_name = decodeURIComponent(req.body.vio_city_name);
-            var vio_location = req.body.vio_location;
-            var engine_no = req.body.engine_no;
-            var frame_no = req.body.frame_no;
-            var reg_no = req.body.reg_no;
-            var insurance_company = decodeURIComponent(req.body.insurance_company);
-            var insurance_date = new Date(req.body.insurance_date);
-            var maintain_company = decodeURIComponent(req.body.maintain_company);
-            var maintain_last_mileage = parseInt(req.body.maintain_last_mileage);
-            var maintain_last_date = new Date(req.body.maintain_last_date);
-            var buy_date = new Date(req.body.buy_date);
-            var insurance_tel = req.body.insurance_tel;
-            var maintain_tel = req.body.maintain_tel;
-            var gas_no = req.body.gas_no;
+    //var auth_code = req.query.auth_code;
+    //db.ifAuthCodeValid(auth_code, function(valid){
+    //    if(valid){
+    //        var cust_id = req.body.cust_id;
+    //        var car_brand = decodeURIComponent(req.body.car_brand);
+    //        var car_series = decodeURIComponent(req.body.car_series);
+    //        var car_type = decodeURIComponent(req.body.car_type);
+    //        var car_brand_id = parseInt(req.body.car_brand_id);
+    //        var car_series_id = parseInt(req.body.car_series_id);
+    //        var car_type_id = parseInt(req.body.car_type_id);
+    //        var vio_city_name = decodeURIComponent(req.body.vio_city_name);
+    //        var vio_location = req.body.vio_location;
+    //        var engine_no = req.body.engine_no;
+    //        var frame_no = req.body.frame_no;
+    //        var reg_no = req.body.reg_no;
+    //        var insurance_company = decodeURIComponent(req.body.insurance_company);
+    //        var insurance_date = new Date(req.body.insurance_date);
+    //        var maintain_company = decodeURIComponent(req.body.maintain_company);
+    //        var maintain_last_mileage = parseInt(req.body.maintain_last_mileage);
+    //        var maintain_last_date = new Date(req.body.maintain_last_date);
+    //        var buy_date = new Date(req.body.buy_date);
+    //        var insurance_tel = req.body.insurance_tel;
+    //        var maintain_tel = req.body.maintain_tel;
+    //        var gas_no = req.body.gas_no;
 
 //            obj_name, cust_id, car_brand, car_series, car_type, engine_no, frame_no,
 //                insurance_company, insurance_date, annual_inspect_date, maintain_company,
 //                maintain_last_mileage, maintain_last_date, maintain_next_mileage, buy_date
-            db.addVehicle(obj_name, cust_id, car_brand, car_series, car_type, vio_location, engine_no, frame_no, reg_no,
-                insurance_company, insurance_date, maintain_company, maintain_last_mileage, maintain_last_date, buy_date,
-                insurance_tel, maintain_tel, gas_no, car_brand_id, car_series_id, car_type_id, vio_city_name, function (err, obj_id) {
-                    if (err) {
-                        result = {
-                            "status_code":define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-                        };
-                        res.send(result);
-                    } else {
-                        result = {
-                            "status_code":define.API_STATUS_OK, //0 成功 >0 失
-                            "obj_id":obj_id
-                        };
-                        res.send(result);
-                    }
-                });
-        }else{
-            util.resSendNoRight(res);
+    var create_json = util.getCreateJson(req.query, "seller_id,cust_id,obj_name,nick_name,car_brand,car_series,car_type,car_brand_id,car_series_id,car_type_id,engine_no,frame_no,reg_no," +
+        "insurance_company,insurance_date,maintain_company,maintain_last_mileage,maintain_last_date,buy_date,insurance_tel,maintain_tel,gas_no");
+    create_json.seller_id = 0;
+    var obj_name = req.query.obj_name;
+    var exists_query = {"obj_name": obj_name};
+    var exists_field = {"obj_id": 1};
+    //db.addVehicle(obj_name, cust_id, car_brand, car_series, car_type, vio_location, engine_no, frame_no, reg_no,
+    //    insurance_company, insurance_date, maintain_company, maintain_last_mileage, maintain_last_date, buy_date,
+    //    insurance_tel, maintain_tel, gas_no, car_brand_id, car_series_id, car_type_id, vio_city_name, function (err, obj_id) {
+    db.create(db.table_name_def.TAB_VEHICLE, create_json, true, exists_query, exists_field, false, null, null, function (status, obj_id) {
+        if (status == define.DB_STATUS_FAIL) {
+            result = {
+                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+            };
+            res.send(result);
+        } else if (status == define.DB_STATUS_EXISTS) {
+            result = {
+                "status_code": define.API_STATUS_EXISTS_USER, //车辆已存在
+                "obj_id": obj_id
+            };
+            res.send(result);
+        } else {
+            result = {
+                "status_code": define.API_STATUS_OK, //0 成功 >0 失
+                "obj_id": obj_id
+            };
+            res.send(result);
         }
     });
+        //}else{
+        //    util.resSendNoRight(res);
+        //}
+    //});
 };
 
 // 修改车辆信息
@@ -126,7 +143,7 @@ exports.update = function(req, res){
     //    vio_citys: [                     //违章城市
     //    //{ vio_city_name: '深圳', vio_location: '0755' }
     //]
-    var update_fields = "cust_id,obj_name,nick_name,device_id,car_brand_id,car_brand,car_series_id,car_series,car_type_id,car_type,engine_no,frame_no," +
+    var update_fields = "cust_id,cust_name,obj_name,nick_name,device_id,car_brand_id,car_brand,car_series_id,car_series,car_type_id,car_type,engine_no,frame_no," +
         "reg_no,insurance_company,insurance_tel,insurance_date,insurance_no,annual_inspect_date,maintain_company,maintain_tel,mileage,maintain_last_mileage," +
         "maintain_last_date,gas_no,fuel_price,buy_date,business_status,last_arrive_time,geofence,vio_citys";
     var json = util.getQueryAndUpdateJson(req.query, "obj_id", update_fields);
@@ -176,45 +193,55 @@ exports.list = function (req, res) {
 };
 
 exports.delete = function(req, res){
-    var auth_code = req.query.auth_code;
-    db.ifAuthCodeValid(auth_code, function(valid){
-        if(valid){
-            var result;
-            var obj_id = req.params.obj_id;
-            db.getVehicleById(obj_id, function(vehicle){
-                if(vehicle){
-                    //2015-09-01 解除终端设备的用户绑定 by tom
-                    db.updateDeviceCustomer(vehicle.device_id, 0, function(){
-                        console.log("udpate device_id=" + vehicle.device_id + " to 0");
-                    });
+    //var auth_code = req.query.auth_code;
+    //db.ifAuthCodeValid(auth_code, function(valid){
+    //    if(valid){
+    //        var result;
+    var obj_id = req.query.obj_id;
+    var query_json = {"obj_id": obj_id};
+    //db.getVehicleById(obj_id, function (vehicle) {
+    db.get(db.table_name_def.TAB_VEHICLE, query_json, "obj_id,device_id,seller_id", function(vehicle){
+        if (vehicle) {
+            if(vehicle.seller_id == 0 || vehicle.seller_id == undefined){
+                //2015-09-01 解除终端设备的用户绑定 by tom
+                var query_json = {"device_id": vehicle.device_id};
+                var update_json = {"cust_id": 0};
+                //db.updateDeviceCustomer(vehicle.device_id, 0, function () {
+                db.update(db.table_name_def.TAB_DEVICE, query_json, update_json, function(status){
+                    console.log("udpate device_id=" + vehicle.device_id + " to 0");
+                });
 
-                    db.deleteVehicle(obj_id, function(err){
-                        if(err){
-                            result = {
-                                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-                            };
-                            res.send(result);
-                        }else{
-                            // 删除车辆相关的车务提醒
-                            db.deleteReminderByObjID(obj_id, function(err){
-
-                            });
-
-                            result = {
-                                "status_code":define.API_STATUS_OK  //0 成功 >0 失败
-                            };
-                            res.send(result);
-                        }
-                    });
-                }else{
-                    result = {
-                        "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
-                    };
-                    res.send(result);
-                }
-            });
-        }else{
-            util.resSendNoRight(res);
+                //db.deleteVehicle(obj_id, function (err) {
+                var query_json = {"obj_id": obj_id};
+                db.remove(db.table_name_def.TAB_VEHICLE, query_json, function(status){
+                    if (status == define.DB_STATUS_FAIL) {
+                        result = {
+                            "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+                        };
+                        res.send(result);
+                    } else {
+                        result = {
+                            "status_code": define.API_STATUS_OK  //0 成功 >0 失败
+                        };
+                        res.send(result);
+                    }
+                });
+            }else{
+                result = {
+                    "status_code": define.API_STATUS_NO_SELLER_RIGHT,  //0 成功 >0 失败
+                    "err_msg": "vehicle was created by seller, cannot remove!"
+                };
+                res.send(result);
+            }
+        } else {
+            result = {
+                "status_code": define.API_STATUS_DATABASE_ERROR  //0 成功 >0 失败
+            };
+            res.send(result);
         }
     });
+    //    }else{
+    //        util.resSendNoRight(res);
+    //    }
+    //});
 };

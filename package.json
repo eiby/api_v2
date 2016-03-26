@@ -20,6 +20,8 @@
     "excel-export": "",
     "aliyun-sdk": "",
     "weixin-pay": "",
-    "xml2js": "0.4.15"
+    "xml2js": "0.4.15",
+    "canvas": "1.3.12",
+    "websocket": "1.0.21"
   }
 }

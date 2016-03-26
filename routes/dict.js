@@ -107,6 +107,18 @@ exports.weather2 = function(req, res){
     });
 };
 
+exports.aqi = function(req, res){
+    var city = req.query.city;
+    var url = "http://www.pm25.in/api/querys/aqi_details.json?city=" + city + "&avg=true&stations=no&token=GmBqBNJhqwsNf19Fwqdy";
+    util._get(url, function(doc){
+        var result = {
+            aqi: doc[0].aqi,
+            quality: doc[0].quality
+        };
+        res.send(result);
+    });
+};
+
 var getWeatherTips = function(weather_id, temp){
     var tips = "";
     switch(weather_id){

@@ -158,13 +158,13 @@ core_router.prototype.get = function(){
 exports.core_router = core_router;
 
 var option = {
-    //创建限制字段
+    // 创建限制字段
     create_fields: "",
     // 更新,删除查询限制字段
     query_fields: "",
     // 更新限制字段
     update_fields: "",
-    //获取列表查询限制字段
+    // 获取列表查询限制字段
     list_fields: ""
 };
 var core_router = new core_router("", option);

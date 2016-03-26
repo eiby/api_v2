@@ -12,6 +12,7 @@ var jpush = require("jpush");
 var sms = require("../lib/sms.js");
 var mailer = require("../lib/mailer.js");
 var revise = require("../lib/revise.js");
+var valid_code = require("../lib/valid_code");
 
 exports.pushMessage = function (req, res) {
     var auth_code = req.query.auth_code;
@@ -221,6 +222,32 @@ exports.sendSMS = function (req, res) {
             result = {
                 "status_code": define.API_STATUS_EXCEPTION,  //0 成功 >0 失败
                 "err_msg": obj.err_msg
+            };
+            res.send(result);
+        }
+    });
+};
+
+// 获取验证码并返回图片
+exports.sendPicValidCode = function (req, res) {
+    var mobile = req.query.mobile;
+    var r = valid_code.getPicValidCode();
+    var valid_time = new Date();
+    var d = valid_time.getTime() + 5 * 60 * 1000;  //5分钟有效期
+    valid_time = new Date(d);
+    var query_json = {'mobile': mobile};
+    var update_json = {'valid_code': r.code, 'valid_time': valid_time};
+    db.findAndUpdate(db.table_name_def.TAB_VALID_CODE, query_json, update_json, function (status, doc) {
+        if (status == define.DB_STATUS_OK) {
+            var result = {
+                "status_code": define.API_STATUS_OK,  //0 成功 >0 失败
+                "valid_code_img": r.img
+            };
+            res.send(result);
+        } else {
+            result = {
+                "status_code": define.API_STATUS_EXCEPTION,  //0 成功 >0 失败
+                "err_msg": "database error"
             };
             res.send(result);
         }
